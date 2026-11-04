@@ -87,7 +87,10 @@ for (const [label, viewport, touch] of [["mobile", { width: 390, height: 844 }, 
     await p.locator("#sug-text").fill("The explanation of this question could be clearer.");
     const [tab] = await Promise.all([ctx.waitForEvent("page"), p.locator("[data-sug=github]").click()]);
     await tab.waitForLoadState("commit").catch(() => {});
-    ok(/github\.com\/babylonace\/repaso\/issues\/new\?title=Fix%20DB-07/.test(tab.url()), tab.url());
+    // Signed out, GitHub redirects to its login page and keeps the issue address in return_to (encoded again).
+    let u = tab.url();
+    for (let i = 0; i < 2; i++) { try { u = decodeURIComponent(u); } catch { break; } }
+    ok(/github\.com\/babylonace\/repaso\/issues\/new\?title=Fix DB-07/.test(u), tab.url());
     await tab.close();
     foreign.length = 0; // the issue tab is the one allowed exit
   });
