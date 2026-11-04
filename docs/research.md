@@ -1,0 +1,80 @@
+# Research and decisions
+
+Checked in November 2026. Free plans change, so check the linked pages before relying on a number. "Third-party" marks figures that don't come from the provider itself.
+
+The rule for every choice: 0 EUR, no card, no expiring trial, nothing that pauses or bills overage, no server to look after.
+
+## A. Frontend
+
+| Option | Good | Bad | Verdict |
+|---|---|---|---|
+| Plain HTML, CSS, JS modules | No dependencies to update, fast, the original artifact was already vanilla JS | Hand-written routing and rendering | **Chosen** |
+| Astro | Static pages per topic, good for search engines | Dependency tree to keep updated, a build step that can break by itself | Plan B if SEO becomes a goal |
+| Vite + React or Svelte | Comfortable for a growing app | Rewrite for no user benefit, more JS to download | No |
+| Next.js | Very capable | Built for servers, which this project doesn't want | No |
+
+This one is engineering judgment, so there's nothing to cite. A project meant to run for years with no maintenance gets the most from having nothing to update.
+
+## B. Database and accounts
+
+| Option | Free limits | Inactivity | Over the limit | Verdict |
+|---|---|---|---|---|
+| [Firebase Spark](https://firebase.google.com/pricing) | Auth 50K monthly users. Firestore 1 GiB, 50K reads, 20K writes and 20K deletes per day, 10 GiB egress per month | No official pause found. One third-party tracker claims one, unverified | Operations refused (third-party), no bill: no card on file | **Chosen** |
+| [Supabase](https://supabase.com/pricing.md) | 50K monthly users, 500 MB, 2 projects | Pauses after 1 week inactive | | Rejected: it pauses |
+| [Cloudflare D1](https://developers.cloudflare.com/changelog/post/2026-09-01-d1-free-tier-limit-enforcement/) + Workers | 5M reads and 100K writes per day, 5 GB | No pause | Queries fail | **Plan B**, but accounts would have to be built by hand |
+| No accounts | No limits at all | | | Already the default, and export/import covers moving devices |
+
+Firebase details: [Auth limits](https://firebase.google.com/docs/auth/limits) allow 5 e-mail links per day on Spark and 100 new accounts per hour per IP, so sign-in is Google and GitHub only. [Firestore](https://firebase.google.com/docs/firestore/quotas) allows 1 MiB per document, and a person's full progress is about 43 KB.
+
+## C. Hosting and domain
+
+| Option | Free limits | Catch | Verdict |
+|---|---|---|---|
+| [GitHub Pages](https://docs.github.com/en/pages/getting-started-with-github-pages/github-pages-limits) | 1 GB site, 100 GB per month (soft) | Not for online businesses or for handling passwords. Repaso is non-commercial and has no passwords | **Chosen** |
+| [Cloudflare Pages](https://developers.cloudflare.com/pages/platform/limits) | 500 builds per month, 20,000 files, 25 MiB per file. Bandwidth unlimited (third-party) | Needs a Cloudflare account | **Plan B**, `public/_headers` is ready and paths are relative |
+| Firebase Hosting | [10 GB stored, 360 MB per day](https://firebase.google.com/pricing) | The daily limit is low for a 600 KB first visit | No |
+| Vercel Hobby | | Non-commercial only | No |
+| Netlify | | Sources disagree on the free limits | No |
+
+**Domain:** `babylonace.github.io/repaso/`. A custom domain costs money every year, so there isn't one. If that changes, it's a CNAME and an authorized domain in Firebase.
+
+## D. Translation
+
+| Option | Limit | Result | Verdict |
+|---|---|---|---|
+| [DeepL Free](https://developers.deepl.com/docs/resources/usage-limits) | 500,000 characters per month | Below the 632,000 characters this bank needs in one go | No |
+| Argos Translate | None, offline | Moderate quality on technical text | No |
+| AI-assisted, once, stored as static files | None at runtime | Keeps technical terms in English on purpose | **Chosen** |
+| Plan B | | Fix by hand through issues, or leave a question in English: the site falls back to English per field | |
+
+The Spanish is static JSON, so there's no live AI and no running cost. `scripts/content.mjs` rejects a translation that changes a code span, the line structure or the number of options. It can't judge the wording, so mistakes are possible, which is why every question has a correction link.
+
+## E. Similar sites
+
+| Site | Free | Languages | Good idea to take | Gap Repaso fills |
+|---|---|---|---|---|
+| [Froquiz](https://froquiz.com) | Quizzes yes, system design is premium | English | Topic quizzes | Sign-in needed for history |
+| [awesome-interview-questions](https://github.com/DopplerHQ/awesome-interview-questions) | Yes, CC0 | English | Breadth, 85.4k stars | Links only, archived on 2024-07-29 |
+| [Front End Interview Handbook](https://www.frontendinterviewhandbook.com/) | Mostly | Several, including Spanish | Translated content | Practice lives on another site, frontend only |
+| [roadmap.sh/questions](https://roadmap.sh/questions) | Yes | English | Questions grouped by topic | One topic at a time |
+
+What's different here: practice starts on the home page without signing in, English and Spanish are complete, and progress works with no account.
+
+## Limits, and what to do near them
+
+| Service | Limit | Repaso's use | Warning sign | What to do |
+|---|---|---|---|---|
+| GitHub Pages bandwidth | 100 GB per month (soft) | First visit about 620 KB, repeat visits come from the offline copy. Roughly 160,000 first visits a month | E-mail from GitHub | Move to Cloudflare Pages: same files, 10 minutes |
+| GitHub Pages size | 1 GB | 1.7 MB | Not a concern | |
+| Firestore writes | 20K per day | Estimate of 5 per active signed-in person, so about 4,000 such people a day | Firebase console > Usage above 70% | In `app.js`, raise the 60 second save timer to 5 minutes or save only at the end of a session |
+| Firestore reads | 50K per day | 1 per sign-in or visit | Same | Same |
+| Firestore storage | 1 GiB | About 43 KB per person at most, so over 20,000 people | Same | Remove accounts idle for over a year, after updating the privacy page |
+| Firebase Auth | 50K monthly users | One per person | Same | Unlikely to matter before Firestore does |
+
+If a Firebase limit is reached, sync stops until the daily reset and the account page says so. Practice, search and local progress keep working, because nothing there depends on Firebase. Nothing is billed, because the plan has no payment method.
+
+The rules can't rate-limit, so a signed-in abuser could burn the daily write quota. The damage is that sync pauses for a day. If it happens more than once, turn on Firebase App Check.
+
+## Not tested
+
+Sign-up, sign-out, sign-in again, a second device, deletion and the security rules all run in `scripts/e2e-accounts.mjs`, against the Firebase emulators. Those tests skip the browser security policy, and they don't touch the real Google or GitHub login pages. That part needs the check in [firebase-setup.md](firebase-setup.md), step 5.

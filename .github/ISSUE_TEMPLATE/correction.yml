@@ -1,0 +1,17 @@
+name: Fix a question or translation
+description: A wrong answer, a confusing explanation or a bad translation
+title: "Fix: "
+labels: [correction]
+body:
+  - type: input
+    id: ref
+    attributes:
+      label: Question ID
+      description: Shown in the link of the question, for example DB-07. Skip it if you don't have it.
+  - type: textarea
+    id: what
+    attributes:
+      label: What's wrong, and what should it say?
+      description: A link to a source helps a lot.
+    validations:
+      required: true

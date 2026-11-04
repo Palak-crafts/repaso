@@ -1,0 +1,16 @@
+name: Suggest a question or topic
+description: Something interviewers ask that isn't here yet
+title: "New question: "
+labels: [new-content]
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: The question or topic
+      description: Written in your own words, please. Don't paste text from other sites.
+    validations:
+      required: true
+  - type: textarea
+    id: answer
+    attributes:
+      label: A good answer, if you have one

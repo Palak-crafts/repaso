@@ -1,0 +1,86 @@
+[
+ {
+  "k": "py",
+  "name": "Python",
+  "name_es": "Python",
+  "p": "PY"
+ },
+ {
+  "k": "jv",
+  "name": "Java Core",
+  "name_es": "Java Core",
+  "p": "JV"
+ },
+ {
+  "k": "spr",
+  "name": "Spring, JPA & Java Web",
+  "name_es": "Spring, JPA y Java Web",
+  "p": "SPR"
+ },
+ {
+  "k": "oop",
+  "name": "Design & Practices",
+  "name_es": "Diseño y buenas prácticas",
+  "p": "DP"
+ },
+ {
+  "k": "api",
+  "name": "Backend & APIs",
+  "name_es": "Backend y APIs",
+  "p": "API"
+ },
+ {
+  "k": "db",
+  "name": "Databases & SQL",
+  "name_es": "Bases de datos y SQL",
+  "p": "DB"
+ },
+ {
+  "k": "algo",
+  "name": "Algorithms & DS",
+  "name_es": "Algoritmos y estructuras de datos",
+  "p": "ALG"
+ },
+ {
+  "k": "sys",
+  "name": "System Design",
+  "name_es": "Diseño de sistemas",
+  "p": "SD"
+ },
+ {
+  "k": "sec",
+  "name": "Security",
+  "name_es": "Seguridad",
+  "p": "SEC"
+ },
+ {
+  "k": "fe",
+  "name": "Frontend & Web",
+  "name_es": "Frontend y web",
+  "p": "FE"
+ },
+ {
+  "k": "ops",
+  "name": "Cloud & DevOps",
+  "name_es": "Cloud y DevOps",
+  "p": "OPS"
+ },
+ {
+  "k": "vcs",
+  "name": "Maven, Git & SDLC",
+  "name_es": "Maven, Git y SDLC",
+  "p": "VCS"
+ },
+ {
+  "k": "test",
+  "name": "Testing",
+  "name_es": "Testing",
+  "p": "TST"
+ },
+ {
+  "k": "beh",
+  "name": "Behavioral",
+  "name_es": "Preguntas de comportamiento",
+  "p": "BEH"
+ }
+]
