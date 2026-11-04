@@ -125,3 +125,42 @@ test("shuffle keeps the same items and pct handles zero", () => {
   assert.equal(pct(1, 3), 33);
   assert.equal(pct(0, 0), 0);
 });
+
+import { sanitizeProgress } from "../public/assets/js/core.js";
+test("sanitizing drops unknown ids, clamps numbers and never adds __proto__", () => {
+  const hostile = JSON.parse(`{"v":1,"items":{"A00":{"b":99,"d":"x","n":-4,"c":1.9,"w":null},"__proto__":{"b":2},"ZZZ":{"b":2}},"stats":{"answered":"7","correct":3,"streak":-1,"best":2},"studied":{"A00":1,"nope":1},"levels":{"a":9,"__proto__":3,"Bad Key":2}}`);
+  const out = sanitizeProgress(hostile, { A00: 1 });
+  assert.deepEqual(Object.keys(out.items), ["A00"]);
+  assert.deepEqual(out.items.A00, { b: 5, d: 0, n: 0, c: 1, w: 0, l: 0, t: 0 });
+  assert.deepEqual(out.stats, { answered: 0, correct: 3, streak: 0, best: 2 });
+  assert.deepEqual(out.studied, { A00: 1 });
+  assert.deepEqual(out.levels, { a: 3 });
+  assert.equal(Object.getPrototypeOf(out.items), Object.prototype);
+});
+test("sanitizing a non-progress value gives an empty one", () => {
+  assert.ok(validProgress(sanitizeProgress("nope")));
+  assert.ok(validProgress(sanitizeProgress(null)));
+});
+
+test("a merge keeps the answer that was given last, and totals follow the merged items", () => {
+  const a = blankProgress(), b = blankProgress();
+  a.items.X = { b: 1, d: 5, n: 4, c: 2, w: 2, l: 0, t: 200 }; // A missed it last
+  b.items.X = { b: 3, d: 9, n: 4, c: 3, w: 1, l: 1, t: 100 };
+  a.items.Y = { b: 2, d: 1, n: 3, c: 3, w: 0, l: 1, t: 50 };
+  b.stats = { answered: 4, correct: 3, streak: 2, best: 2 };
+  a.stats = { answered: 7, correct: 5, streak: 0, best: 1 };
+  const m = mergeProgress(a, b);
+  assert.equal(m.items.X.b, 1, "the latest answer wins");
+  assert.deepEqual([m.stats.answered, m.stats.correct], [7, 5]);
+  assert.equal(m.stats.best, 2);
+});
+test("an empty level does not block the next one", () => {
+  const p = blankProgress();
+  const holes = [{ id: "A", cat: "a", l: 0 }, { id: "C", cat: "a", l: 2 }]; // nothing at level 1
+  p.items.A = { b: 2 };
+  refreshLevels(p, holes, [{ k: "a" }]);
+  assert.equal(p.levels.a, 2, "level 1 is empty, so it is passed, and level 2 waits for its own questions");
+  p.items.C = { b: 2 };
+  refreshLevels(p, holes, [{ k: "a" }]);
+  assert.equal(p.levels.a, 3);
+});

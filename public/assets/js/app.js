@@ -1,6 +1,6 @@
 import {
   blankProgress, validProgress, shuffle, pct, esc, inline, richText, highlight,
-  gradeItem, gradeStats, levelStats, refreshLevels, boxCounts, mergeProgress, searchDocs, search,
+  gradeItem, gradeStats, levelStats, refreshLevels, boxCounts, mergeProgress, sanitizeProgress, searchDocs, search,
 } from "./core.js";
 import { STRINGS, PAGES } from "./i18n.js";
 import { CONFIG } from "./config.js";
@@ -11,18 +11,31 @@ const KEYS = { progress: "repaso-progress-v1", prefs: "repaso-prefs-v1", signed:
 const SIZES = [10, 20, 40], TIMERS = [30, 60, 90], MODES = ["smart", "all", "weak", "exam"];
 
 const lsGet = (k) => { try { const s = localStorage.getItem(k); return s === null ? null : JSON.parse(s); } catch { return null; } };
-const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* full or blocked: keep working in memory */ } };
+let storageWarned = false;
+const lsSet = (k, v) => {
+  try { localStorage.setItem(k, JSON.stringify(v)); }
+  catch { if (!storageWarned) { storageWarned = true; queueMicrotask(() => toast(t("err.storage"))); } } // full or blocked: keep working in memory
+};
 const lsDel = (k) => { try { localStorage.removeItem(k); } catch { /* same */ } };
 
-let TOPICS = [], TOPIC = {}, BANK = [], BYID = {}, GL = {}, ES = null, esLoading = null, DOCS = null;
+const bare = (o = {}) => Object.assign(Object.create(null), o);
+let TOPICS = [], TOPIC = bare(), BANK = [], BYID = bare(), GL = bare(), ES = null, esLoading = null, DOCS = null;
 let P = lsGet(KEYS.progress);
 if (!validProgress(P)) P = blankProgress();
 if (!P.studied) P.studied = {};
 if (!P.levels) P.levels = {};
 
+/** First visit: the first language in the browser's list that we have. English when none. */
+function detectLang() {
+  for (const l of navigator.languages?.length ? navigator.languages : [navigator.language || ""]) {
+    if (/^es(-|$)/i.test(l)) return "es";
+    if (/^en(-|$)/i.test(l)) return "en";
+  }
+  return "en";
+}
 const saved = lsGet(KEYS.prefs) || {};
 const ui = {
-  lang: saved.lang === "es" ? "es" : "en",
+  lang: saved.lang === "es" || saved.lang === "en" ? saved.lang : detectLang(),
   mode: MODES.includes(saved.mode) ? saved.mode : "smart",
   size: SIZES.includes(saved.size) ? saved.size : 10,
   timer: TIMERS.includes(saved.timer) ? saved.timer : 60,
@@ -30,11 +43,11 @@ const ui = {
   cats: Array.isArray(saved.cats) ? new Set(saved.cats) : null,
   stLv: saved.stLv === "all" || [0, 1, 2, 3].includes(saved.stLv) ? saved.stLv : 0,
 };
-const savePrefs = () => lsSet(KEYS.prefs, { ...ui, cats: [...ui.cats] });
+const savePrefs = () => lsSet(KEYS.prefs, { ...ui, cats: [...(ui.cats || [])] });
 
 const t = (key, vars) => {
   let s = STRINGS[ui.lang][key] ?? STRINGS.en[key] ?? key;
-  if (vars) for (const k in vars) s = s.replaceAll(`{${k}}`, vars[k]);
+  if (vars) for (const k in vars) s = s.replaceAll(`{${k}}`, () => vars[k]);
   return s;
 };
 const topicName = (k) => (ui.lang === "es" ? TOPIC[k].name_es : TOPIC[k].name);
@@ -50,10 +63,12 @@ function gx(key) {
   const g = GL[key], e = ui.lang === "es" ? ES?.gl?.[key] : null;
   return { name: e?.[0] || g[0], def: e?.[1] || g[1] };
 }
+/** The question, plus the first line of its code when it has one, so look-alike questions can be told apart in lists. */
+const stem = (q) => inline(qx(q).q) + (q.c ? ` <code class="hint">${esc((q.c.split("\n").find((l) => l.trim()) || "").trim().slice(0, 60))}</code>` : "");
 const code = (c) => `<pre class="code" tabindex="0"><code>${highlight(c)}</code></pre>`;
 
 /* ---------- saving ---------- */
-let sync = null, pushTimer = null, dirty = false;
+let sync = null, pushTimer = null, dirty = false, deleting = false, overwrite = false;
 const acct = { user: null, status: "idle", note: "", noteErr: false };
 
 function save() {
@@ -65,10 +80,19 @@ function save() {
 /** One document, written at most once a minute and at the end of a session, to stay well inside free quotas. */
 async function pushNow() {
   clearTimeout(pushTimer);
-  if (!acct.user || !sync || !dirty) return;
+  if (!acct.user || !sync || !dirty || deleting) return;
   dirty = false;
-  try { await sync.push(P); acct.status = "synced"; }
-  catch { dirty = true; acct.status = "error"; }
+  try {
+    // Another device may have saved since we last looked: merge it in before writing, so nothing is lost.
+    // After "erase progress" the next write replaces the cloud copy instead.
+    if (!overwrite) {
+      const remote = await sync.pull();
+      if (remote) { P = mergeProgress(P, sanitizeProgress(remote, BYID)); refreshLevels(P, BANK, TOPICS); lsSet(KEYS.progress, P); }
+    }
+    await sync.push(P);
+    overwrite = false;
+    acct.status = "synced";
+  } catch { dirty = true; acct.status = "error"; }
   paintAcct();
 }
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") pushNow(); });
@@ -82,11 +106,18 @@ async function onUser(user) {
   acct.user = user ? { name: user.displayName || user.email || "", email: user.email || "" } : null;
   if (!user) { lsDel(KEYS.signed); acct.status = "idle"; paintAcct(); return; }
   lsSet(KEYS.signed, 1);
+  if (P.owner && P.owner !== user.uid) { P = blankProgress(); refreshLevels(P, BANK, TOPICS); }
+  P.owner = user.uid; lsSet(KEYS.progress, P);
   acct.status = "syncing"; paintAcct();
   try {
     const remote = await sync.pull();
-    if (remote) { P = mergeProgress(P, remote); refreshLevels(P, BANK, TOPICS); lsSet(KEYS.progress, P); }
-    dirty = true; await pushNow();
+    let changed = true;
+    if (remote) {
+      const before = JSON.stringify(sanitizeProgress(remote, BYID));
+      P = mergeProgress(P, sanitizeProgress(remote, BYID)); refreshLevels(P, BANK, TOPICS); lsSet(KEYS.progress, P);
+      changed = JSON.stringify(sanitizeProgress(P, BYID)) !== before; // nothing new locally: skip the write
+    }
+    if (changed) { dirty = true; await pushNow(); }
     acct.status = "synced";
   } catch { acct.status = "error"; }
   paintAcct();
@@ -172,7 +203,7 @@ function resultsHTML(hits) {
     if (h.kind === "topic") return `<li><a href="#/study/${h.key}"><b>${esc(topicName(h.key))}</b><small>${t("search.topic")}</small></a></li>`;
     if (h.kind === "term") { const g = gx(h.key); return `<li><a href="#/term/${h.key}"><b>${esc(g.name)}</b><small>${t("search.term")}: ${inline(g.def.slice(0, 110))}${g.def.length > 110 ? "..." : ""}</small></a></li>`; }
     const q = BYID[h.key];
-    return `<li><a href="#/q/${h.key}"><b>${inline(qx(q).q)}</b><small>${t("search.q")}, ${esc(topicName(q.cat))}, ${lv(q.l)}</small></a></li>`;
+    return `<li><a href="#/q/${h.key}"><b>${stem(q)}</b><small>${t("search.q")}, ${esc(topicName(q.cat))}, ${lv(q.l)}</small></a></li>`;
   }).join("")}</ul>`;
 }
 function runSearch(query, limit) {
@@ -182,7 +213,7 @@ function runSearch(query, limit) {
 function loadEs() {
   if (ES) return Promise.resolve(ES);
   esLoading ||= fetch("data/bank.es.json").then((r) => { if (!r.ok) throw 0; return r.json(); })
-    .then((j) => { ES = j; DOCS = null; return j; })
+    .then((j) => { ES = { q: bare(j.q), gl: bare(j.gl) }; DOCS = null; return j; })
     .catch((e) => { esLoading = null; throw e; });
   return esLoading;
 }
@@ -274,7 +305,7 @@ function viewPractice() {
 /* session */
 let S = null;
 function startSession(list, opts = {}) {
-  if (!list.length) return;
+  if (!list.length) { toast(t("setup.empty.smart")); return; }
   stopTimer();
   refreshLevels(P, BANK, TOPICS);
   S = { list, idx: 0, right: 0, missed: [], exam: !!opts.exam, timeouts: 0, tick: null, ups: [], done: false };
@@ -354,6 +385,7 @@ function answer(k) {
   if (timedOut) S.timeouts++;
   grade(q, ok);
   viewQuiz();
+  document.querySelector('#bar-in [data-act="next"]')?.focus({ preventScroll: true });
   document.querySelector(".fb")?.scrollIntoView({ block: "nearest", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
 }
 function next() {
@@ -365,8 +397,7 @@ function next() {
 }
 function finish() {
   stopTimer();
-  S.total = S.state || S.revealed ? Math.min(S.idx + 1, S.list.length) : S.idx;
-  if (S.idx >= S.list.length) S.total = S.list.length;
+  S.total = S.right + S.missed.length;
   S.done = true;
   pushNow();
   viewDone();
@@ -381,7 +412,7 @@ function viewDone() {
   <p class="muted">${t("done.correct", { p: pct(S.right, S.total) })}${S.exam ? `, ${t("done.timeouts", { n: S.timeouts })}` : ""}</p>
   <section class="section"><h2>${t("home.boxes")}</h2>${boxesHTML()}</section>
   <section class="section"><h2>${t("done.missed")}</h2>
-  ${S.missed.length ? `<ul class="results">${S.missed.map((q) => `<li><a href="#/q/${q.id}"><b>${inline(qx(q).q)}</b></a></li>`).join("")}</ul>` : `<p class="muted">${t("done.clean")}</p>`}</section>
+  ${S.missed.length ? `<ul class="results">${S.missed.map((q) => `<li><a href="#/q/${q.id}"><b>${stem(q)}</b></a></li>`).join("")}</ul>` : `<p class="muted">${t("done.clean")}</p>`}</section>
   ${CONFIG.firebase && !acct.user ? `<p><a href="#/account">${t("done.save")}</a></p>` : ""}
   </div>`;
   const b = [[t("done.home"), "", "home"]];
@@ -409,10 +440,10 @@ function viewStudy(cat, lvArg) {
   <h1>${esc(topicName(k))}</h1>
   <p class="muted">${t("study.lead")}</p>
   <button type="button" class="btn pri" data-go="topic" data-cat-go="${k}">${t("study.practice")}</button>
-  <section class="section"><h2>${t("study.level")}</h2><div class="chips">${[0, 1, 2, 3, "all"].map((l) => `<a class="chip" href="#/study/${k}/${l}" aria-pressed="${ui.stLv === l}" style="text-decoration:none">${l === "all" ? t("study.allv") : lv(l)} <small>${byLv(l).length}</small></a>`).join("")}</div></section>
-  <section class="section"><h2>${t("study.topic")}</h2><div class="chips">${TOPICS.map((c) => `<a class="chip" href="#/study/${c.k}/${ui.stLv}" aria-pressed="${c.k === k}" style="text-decoration:none">${esc(topicName(c.k))}</a>`).join("")}</div></section>
+  <section class="section"><h2>${t("study.level")}</h2><div class="chips">${[0, 1, 2, 3, "all"].map((l) => `<a class="chip" href="#/study/${k}/${l}"${ui.stLv === l ? ' aria-current="true"' : ""} style="text-decoration:none">${l === "all" ? t("study.allv") : lv(l)} <small>${byLv(l).length}</small></a>`).join("")}</div></section>
+  <section class="section"><h2>${t("study.topic")}</h2><div class="chips">${TOPICS.map((c) => `<a class="chip" href="#/study/${c.k}/${ui.stLv}"${c.k === k ? ' aria-current="true"' : ""} style="text-decoration:none">${esc(topicName(c.k))}</a>`).join("")}</div></section>
   <section class="section"><div class="row between"><p class="muted small">${t("study.count", { n: list.length, d: read })}</p>${list.length ? `<button type="button" class="linkbtn" data-expand>${allOpen ? t("study.collapse") : t("study.expand")}</button>` : ""}</div>
-  ${list.length ? `<div id="st-list">${list.map((q) => `<details class="sitem" data-id="${q.id}"${studyOpen.has(q.id) ? " open" : ""}><summary><span>${inline(qx(q).q)}</span><span class="chk">${P.studied[q.id] ? "✓" : ""}</span></summary><div class="sbody">${studyOpen.has(q.id) ? studyBody(q) : ""}</div></details>`).join("")}</div>` : `<p class="muted">${t("study.none")}</p>`}</section></div>`;
+  ${list.length ? `<div id="st-list">${list.map((q) => `<details class="sitem" data-id="${q.id}"${studyOpen.has(q.id) ? " open" : ""}><summary><span>${stem(q)}</span><span class="chk">${P.studied[q.id] ? "✓" : ""}</span></summary><div class="sbody">${studyOpen.has(q.id) ? studyBody(q) : ""}</div></details>`).join("")}</div>` : `<p class="muted">${t("study.none")}</p>`}</section></div>`;
 }
 function viewQuestion(id) {
   const q = BYID[id];
@@ -426,7 +457,7 @@ function viewTerm(key) {
   const g = gx(key), qs = BANK.filter((q) => q.g?.includes(key));
   document.title = `${g.name}: Repaso`;
   main.innerHTML = `<div class="stack"><h1>${esc(g.name)}</h1><p>${inline(g.def)}</p>
-  <section class="section"><h2>${t("q.termqs")}</h2>${qs.length ? `<ul class="results">${qs.map((q) => `<li><a href="#/q/${q.id}"><b>${inline(qx(q).q)}</b><small>${esc(topicName(q.cat))}, ${lv(q.l)}</small></a></li>`).join("")}</ul>` : `<p class="muted">${t("term.none")}</p>`}</section>
+  <section class="section"><h2>${t("q.termqs")}</h2>${qs.length ? `<ul class="results">${qs.map((q) => `<li><a href="#/q/${q.id}"><b>${stem(q)}</b><small>${esc(topicName(q.cat))}, ${lv(q.l)}</small></a></li>`).join("")}</ul>` : `<p class="muted">${t("term.none")}</p>`}</section>
   <p><a href="#/terms">${t("term.back")}</a></p></div>`;
 }
 function viewTerms() {
@@ -456,8 +487,8 @@ function viewAccount() {
     <div class="stack" style="align-items:flex-start">
       <button type="button" class="btn" data-acct="export">${t("acct.export")}</button>
       <label class="btn">${t("acct.import")}<input id="import" type="file" accept="application/json,.json" hidden></label>
-      <button type="button" class="linkbtn" data-arm="reset">${t("acct.reset")}</button>
-      ${acct.user ? `<button type="button" class="linkbtn" data-arm="delete">${t("acct.delete")}</button>` : ""}
+      <button type="button" class="linkbtn" data-arm="reset">${armed.reset ? t("acct.reset2") : t("acct.reset")}</button>
+      ${acct.user ? `<button type="button" class="linkbtn" data-arm="delete">${armed.delete ? t("acct.delete2") : t("acct.delete")}</button>` : ""}
     </div>
     <p class="small"><a href="#/privacy">${t("foot.privacy")}</a></p>
   </section></div>`;
@@ -478,13 +509,23 @@ function viewSuggest(params) {
 }
 
 /* ---------- router ---------- */
+const ROUTES = new Set(["home", "practice", "quiz", "study", "q", "term", "terms", "search", "about", "privacy", "account", "suggest"]);
 function route() {
   const raw = location.hash.replace(/^#\/?/, "");
   const [path, qs] = raw.split("?");
-  const parts = path.split("/").map(decodeURIComponent);
-  return { name: parts[0] || "home", a: parts[1], b: parts[2], params: new URLSearchParams(qs || "") };
+  const parts = path.split("/").map((x) => { try { return decodeURIComponent(x); } catch { return x; } });
+  return { name: ROUTES.has(parts[0]) ? parts[0] : "home", a: parts[1], b: parts[2], params: new URLSearchParams(qs || "") };
+}
+let lastHash = null;
+function focusKey() {
+  const a = document.activeElement;
+  if (!a || a === document.body || !main.contains(a)) return null;
+  for (const [k, v] of Object.entries(a.dataset)) return `[data-${k.replace(/[A-Z]/g, (c) => "-" + c.toLowerCase())}="${CSS.escape(v)}"]`;
+  return a.id ? `#${CSS.escape(a.id)}` : null;
 }
 function render() {
+  const keep = lastHash === location.hash ? focusKey() : null;
+  lastHash = location.hash;
   const r = route();
   document.documentElement.lang = ui.lang;
   if (r.name !== "quiz") { stopTimer(); setBar(null); document.body.classList.remove("in-quiz"); }
@@ -493,7 +534,8 @@ function render() {
     term: () => viewTerm(r.a), terms: viewTerms, search: () => viewSearch(r.a || ""), about: () => viewPage("about"),
     privacy: () => viewPage("privacy"), account: viewAccount, suggest: () => viewSuggest(r.params),
   };
-  (views[r.name] || viewHome)();
+  views[r.name]();
+  if (keep) main.querySelector(keep)?.focus({ preventScroll: true });
   document.querySelectorAll("[data-nav]").forEach((a) => {
     const on = a.dataset.nav === r.name || (a.dataset.nav === "practice" && r.name === "quiz");
     if (on) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
@@ -507,8 +549,14 @@ function paintChrome() {
   $("acct").setAttribute("aria-label", t("aria.account"));
   document.querySelector(".brand").setAttribute("aria-label", t("aria.home"));
   document.querySelector(".skip").textContent = t("skip");
+  $("foot-browse").setAttribute("href", ui.lang === "es" ? "es/t/" : "t/");
 }
-window.addEventListener("hashchange", () => { render(); scrollTo(0, 0); main.focus({ preventScroll: true }); });
+let wantSearch = false;
+window.addEventListener("hashchange", () => {
+  render(); scrollTo(0, 0);
+  if (wantSearch && $("q")) $("q").focus(); else main.focus({ preventScroll: true });
+  wantSearch = false;
+});
 
 /* ---------- events ---------- */
 let toastT;
@@ -522,7 +570,7 @@ const armed = {};
 function arm(btn, name, label, run) {
   if (armed[name]) { clearTimeout(armed[name]); armed[name] = null; run(); return; }
   btn.textContent = label;
-  armed[name] = setTimeout(() => { armed[name] = null; render(); }, 5000);
+  armed[name] = setTimeout(() => { armed[name] = null; if (route().name === "account") render(); }, 5000);
 }
 function note(msg, err = false) { acct.note = msg; acct.noteErr = err; if (route().name === "account") render(); }
 
@@ -565,13 +613,14 @@ document.addEventListener("click", async (e) => {
   }
   if (d.act) {
     const q = S?.list[S.idx];
-    if (d.act === "reveal") { S.revealed = true; viewQuiz(); }
+    if (d.act === "reload") location.reload();
+    else if (d.act === "reveal") { S.revealed = true; viewQuiz(); }
     else if (d.act === "next") next();
     else if (d.act === "got" || d.act === "miss") { grade(q, d.act === "got"); next(); }
     else if (d.act === "end") finish();
     else if (d.act === "home") { S = null; homeQ = null; location.hash = "#/"; }
     else if (d.act === "retry") startSession(shuffle(S.missed), { exam: S.exam });
-    else if (d.act === "again") { const all = new Set(TOPICS.map((c) => c.k)); S = null; startSession(smartList(all, ui.size)); }
+    else if (d.act === "again") { const list = smartList(new Set(TOPICS.map((c) => c.k)), ui.size); if (!list.length) return toast(t("setup.empty.smart")); S = null; startSession(list); }
     return;
   }
   if (d.go) {
@@ -602,10 +651,12 @@ document.addEventListener("click", async (e) => {
   } else if (d.signin) doSignIn(d.signin);
   else if (d.acct === "out") { await pushNow(); await sync.signOutUser(); note(t("acct.signedout")); }
   else if (d.acct === "export") exportProgress();
-  else if (d.arm === "reset") arm(el, "reset", t("acct.reset2"), () => { P = blankProgress(); save(); homeQ = null; note(t("acct.erased")); render(); });
+  else if (d.arm === "reset") arm(el, "reset", t("acct.reset2"), () => { P = blankProgress(); overwrite = !!acct.user; save(); homeQ = null; note(t("acct.erased")); render(); });
   else if (d.arm === "delete") arm(el, "delete", t("acct.delete2"), async () => {
-    try { await sync.deleteAccount(); lsDel(KEYS.signed); note(t("acct.deleted")); }
+    deleting = true; clearTimeout(pushTimer);
+    try { await sync.deleteAccount(); dirty = false; lsDel(KEYS.signed); note(t("acct.deleted")); }
     catch { note(t("acct.deletefail"), true); }
+    finally { deleting = false; }
   });
   else if (d.sug === "github") {
     const text = $("sug-text").value.trim();
@@ -636,7 +687,7 @@ document.addEventListener("change", async (e) => {
   try {
     const data = JSON.parse(await e.target.files[0].text());
     if (!validProgress(data)) throw 0;
-    P = mergeProgress(P, data); refreshLevels(P, BANK, TOPICS); save(); homeQ = null; note(t("acct.imported")); render();
+    P = mergeProgress(P, sanitizeProgress(data, BYID)); refreshLevels(P, BANK, TOPICS); save(); homeQ = null; note(t("acct.imported")); render();
   } catch { note(t("acct.badfile"), true); }
 });
 document.addEventListener("focusin", (e) => { if (e.target.id === "q") loadEs().catch(() => {}); });
@@ -652,7 +703,7 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "/" && !typing && !e.ctrlKey && !e.metaKey) {
     const box = $("q");
     e.preventDefault();
-    if (box) box.focus(); else location.hash = "#/search";
+    if (box) box.focus(); else { wantSearch = true; location.hash = "#/search"; }
     return;
   }
   if (e.key === "Enter" && e.target.id === "q" && e.target.value.trim()) { location.hash = `#/search/${encodeURIComponent(e.target.value.trim())}`; return; }
@@ -660,9 +711,9 @@ document.addEventListener("keydown", (e) => {
   if (typing || e.ctrlKey || e.metaKey || e.altKey) return;
   const name = route().name;
   if (/^[1-4]$/.test(e.key) && (name === "quiz" || name === "home")) {
-    const b = document.querySelector(`.opt[data-k="${+e.key - 1}"]:not(:disabled)`);
+    const b = [...document.querySelectorAll(`.opt[data-k="${+e.key - 1}"]:not(:disabled)`)].find((x) => !x.closest("[hidden]"));
     if (b) { e.preventDefault(); b.click(); }
-  } else if (e.key === "Enter" && name === "quiz" && e.target.tagName !== "BUTTON" && e.target.tagName !== "A") {
+  } else if (e.key === "Enter" && name === "quiz" && !/^(BUTTON|A|SUMMARY|DETAILS)$/.test(e.target.tagName) && !e.target.closest?.("details")) {
     document.querySelector('#bar-in [data-act="next"], #bar-in [data-act="reveal"]')?.click();
   }
 });
@@ -690,15 +741,16 @@ async function boot() {
     const r = await fetch("data/bank.en.json");
     if (!r.ok) throw new Error(r.status);
     const d = await r.json();
-    TOPICS = d.topics; BANK = d.questions; GL = d.glossary;
+    TOPICS = d.topics; BANK = d.questions; GL = bare(d.glossary);
     TOPICS.forEach((c) => { TOPIC[c.k] = c; });
     BANK.forEach((q) => { BYID[q.id] = q; });
   } catch {
-    main.innerHTML = `<p class="notice err">${t("err.load")}</p><p><button type="button" class="btn" onclick="location.reload()">${t("err.retry")}</button></p>`;
+    main.innerHTML = `<p class="notice err">${t("err.load")}</p><p><button type="button" class="btn" data-act="reload">${t("err.retry")}</button></p>`;
     return;
   }
   ui.cats = new Set([...(ui.cats?.size ? ui.cats : TOPICS.map((c) => c.k))].filter((k) => TOPIC[k]));
   if (!ui.cats.size) TOPICS.forEach((c) => ui.cats.add(c.k));
+  P = sanitizeProgress(P, BYID);
   refreshLevels(P, BANK, TOPICS);
   if (ui.lang === "es") await loadEs().catch(() => toast(t("offline.es")));
   paintChrome();

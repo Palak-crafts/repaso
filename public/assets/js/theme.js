@@ -3,3 +3,6 @@ try {
   var t = localStorage.getItem("repaso-theme");
   if (t === "light" || t === "dark") document.documentElement.dataset.theme = t;
 } catch (e) { /* private window: follow the system theme */ }
+// This site has nothing to do inside someone else's frame. Meta CSP cannot set frame-ancestors,
+// and GitHub Pages cannot send X-Frame-Options, so hide the page instead.
+try { if (window.top !== window.self) document.documentElement.style.display = "none"; } catch (e) { document.documentElement.style.display = "none"; }

@@ -19,7 +19,7 @@ const answerOne = async (p) => { await p.locator(".opt").first().click(); };
 const browser = await chromium.launch();
 
 for (const [label, viewport, touch] of [["mobile", { width: 390, height: 844 }, true], ["desktop", { width: 1280, height: 800 }, false]]) {
-  const ctx = await browser.newContext({ viewport, hasTouch: touch });
+  const ctx = await browser.newContext({ viewport, hasTouch: touch, locale: "en-US" });
   const p = await ctx.newPage();
   p.setDefaultTimeout(6000);
   const errors = [], foreign = [];
@@ -130,9 +130,66 @@ for (const [label, viewport, touch] of [["mobile", { width: 390, height: 844 }, 
   await ctx.close();
 }
 
+await check("a 320 px phone: no sideways scroll on the main pages, in both languages", async () => {
+  for (const locale of ["en-US", "es-ES"]) {
+    const ctx = await browser.newContext({ viewport: { width: 320, height: 640 }, locale });
+    const p = await ctx.newPage();
+    await p.goto(URL_);
+    await p.locator(".opt").first().waitFor();
+    for (const r of ["", "practice", "study", "study/py", "terms", "about", "account", "suggest"]) {
+      await p.evaluate((h) => { location.hash = "#/" + h; }, r);
+      await p.waitForTimeout(120);
+      const wide = await p.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+      ok(wide <= 0, `${locale} #/${r} is ${wide}px too wide`);
+    }
+    await ctx.close();
+  }
+});
+await check("first visit follows the browser language, and a saved choice wins", async () => {
+  for (const [locale, langs, want] of [["es-ES", ["es-ES", "es"], "es"], ["en-US", ["en-US", "en"], "en"], ["fr-FR", ["fr-FR", "es"], "es"], ["fr-FR", ["fr-FR"], "en"], ["es-ES", ["en-GB", "es-ES"], "en"]]) {
+    const ctx = await browser.newContext({ locale });
+    await ctx.addInitScript((l) => Object.defineProperty(navigator, "languages", { get: () => l }), langs);
+    const p = await ctx.newPage();
+    await p.goto(URL_);
+    await p.locator(".opt").first().waitFor();
+    ok((await p.evaluate(() => document.documentElement.lang)) === want, `${langs} gave ${await p.evaluate(() => document.documentElement.lang)}`);
+    await ctx.close();
+  }
+});
+await check("odd links never break the app: unknown and prototype-like ids", async () => {
+  const ctx = await browser.newContext({ locale: "en-US" });
+  const p = await ctx.newPage();
+  const crashes = [];
+  p.on("pageerror", (e) => crashes.push(e.message));
+  await p.goto(URL_);
+  await p.locator(".opt").first().waitFor();
+  for (const h of ["#/q/constructor", "#/q/__proto__", "#/term/__proto__", "#/term/toString", "#/study/constructor/9", "#/study/__proto__", "#/search/%E0%A4%A", "#/nope/1/2", "#/suggest?ref=%3Cimg%20src%3Dx%20onerror%3Dalert(1)%3E"]) {
+    await p.evaluate((x) => { location.hash = x; }, h);
+    await p.waitForTimeout(80);
+    ok(await p.locator("main").innerText(), `empty page for ${h}`);
+  }
+  ok(!(await p.locator("main img").count()), "injected markup");
+  ok(!crashes.length, crashes[0]);
+  await ctx.close();
+});
+await check("static pages for search engines open, read without script and link into the app", async () => {
+  const ctx = await browser.newContext({ javaScriptEnabled: false, locale: "en-US" });
+  const p = await ctx.newPage();
+  for (const [u, h1] of [["q/db-07/", /second highest/i], ["es/q/db-07/", /segundo/i], ["t/db/", /SQL/], ["es/t/", /tema/i], ["glossary/", /glossary/i]]) {
+    await p.goto(URL_ + u);
+    ok(h1.test(await p.locator("h1").first().innerText()), `${u} heading`);
+  }
+  await p.goto(URL_ + "q/db-07/");
+  ok((await p.locator("a.btn.pri").getAttribute("href")) === "../../#/q/DB-07", "practice link");
+  const sm = await (await fetch(URL_ + "sitemap.xml")).text();
+  ok((sm.match(/<url>/g) || []).length > 1500, "sitemap too small");
+  ok(/Sitemap: https:\/\//.test(await (await fetch(URL_ + "robots.txt")).text()), "robots.txt without sitemap");
+  await ctx.close();
+});
+
 // Accounts turned on, but the service is unreachable: practice must not notice.
 await check("accounts on but Firebase unreachable: practice still works", async () => {
-  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: "en-US" });
   const p = await ctx.newPage();
   p.setDefaultTimeout(6000);
   const crashes = [];

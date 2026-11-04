@@ -17,7 +17,7 @@ test("the Firebase SDK is only reachable through sync.js, loaded on demand", () 
     assert.ok(!/gstatic\.com/.test(fs.readFileSync(f, "utf8")), f);
 });
 test("the page loads no third-party fonts, scripts or styles at rest", () => {
-  const html = fs.readFileSync("public/index.html", "utf8").replace(/<meta http-equiv[^>]*>/, "").replace(/<a [^>]*>/g, "");
+  const html = fs.readFileSync("public/index.html", "utf8").replace(/<meta http-equiv[^>]*>/, "").replace(/<link rel="canonical"[^>]*>/, "").replace(/<a [^>]*>/g, "");
   assert.ok(!/(src|href)="https?:/.test(html));
   assert.ok(!/@import|url\(http/.test(fs.readFileSync("public/assets/css/app.css", "utf8")));
 });

@@ -24,7 +24,7 @@ This one is engineering judgment, so there's nothing to cite. A project meant to
 | [Cloudflare D1](https://developers.cloudflare.com/changelog/post/2026-09-01-d1-free-tier-limit-enforcement/) + Workers | 5M reads and 100K writes per day, 5 GB | No pause | Queries fail | **Plan B**, but accounts would have to be built by hand |
 | No accounts | No limits at all | | | Already the default, and export/import covers moving devices |
 
-Firebase details: [Auth limits](https://firebase.google.com/docs/auth/limits) allow 5 e-mail links per day on Spark and 100 new accounts per hour per IP, so sign-in is Google and GitHub only. [Firestore](https://firebase.google.com/docs/firestore/quotas) allows 1 MiB per document, and a person's full progress is about 43 KB.
+Firebase details: [Auth limits](https://firebase.google.com/docs/auth/limits) allow 5 e-mail links per day on Spark and 100 new accounts per hour per IP, so sign-in is Google and GitHub only. [Firestore](https://firebase.google.com/docs/firestore/quotas) allows 1 MiB per document, and a person's full progress is about 47 KB.
 
 ## C. Hosting and domain
 
@@ -66,15 +66,21 @@ What's different here: practice starts on the home page without signing in, Engl
 |---|---|---|---|---|
 | GitHub Pages bandwidth | 100 GB per month (soft) | First visit about 620 KB, repeat visits come from the offline copy. Roughly 160,000 first visits a month | E-mail from GitHub | Move to Cloudflare Pages: same files, 10 minutes |
 | GitHub Pages size | 1 GB | 1.7 MB | Not a concern | |
-| Firestore writes | 20K per day | Estimate of 5 per active signed-in person, so about 4,000 such people a day | Firebase console > Usage above 70% | In `app.js`, raise the 60 second save timer to 5 minutes or save only at the end of a session |
+| Firestore writes | 20K per day | One write per save, merged with a read first, and a save at most once a minute while someone is answering. Estimate of 5 writes per active signed-in person, so about 4,000 such people a day | Firebase console > Usage above 70% | In `app.js`, raise the 60 second save timer to 5 minutes or save only at the end of a session |
 | Firestore reads | 50K per day | 1 per sign-in or visit | Same | Same |
-| Firestore storage | 1 GiB | About 43 KB per person at most, so over 20,000 people | Same | Remove accounts idle for over a year, after updating the privacy page |
+| Firestore storage | 1 GiB | About 47 KB per person at most, and the rules cap it at 100 KB, so over 20,000 people | Same | Remove accounts idle for over a year, after updating the privacy page |
 | Firebase Auth | 50K monthly users | One per person | Same | Unlikely to matter before Firestore does |
 
 If a Firebase limit is reached, sync stops until the daily reset and the account page says so. Practice, search and local progress keep working, because nothing there depends on Firebase. Nothing is billed, because the plan has no payment method.
 
-The rules can't rate-limit, so a signed-in abuser could burn the daily write quota. The damage is that sync pauses for a day. If it happens more than once, turn on Firebase App Check.
+The rules can't rate-limit reads and creates, so anyone with a free Google or GitHub account could burn the shared daily quota by calling the API in a loop. The damage is that sync pauses until the daily reset, nothing is billed. Documents are capped at 100 KB and suggestions at 2,000 characters, which limits what can be stored. If it happens, turn on Firebase App Check (it uses reCAPTCHA, a third party, so it would need a line in the privacy page).
 
 ## Not tested
 
 Sign-up, sign-out, sign-in again, a second device, deletion and the security rules all run in `scripts/e2e-accounts.mjs`, against the Firebase emulators. Those tests skip the browser security policy, and they don't touch the real Google or GitHub login pages. That part needs the check in [firebase-setup.md](firebase-setup.md), step 5.
+
+## Known limits of this design
+
+- **One origin for everything on `babylonace.github.io`.** Progress, the sign-in token and the offline copy belong to the origin, not to the `/repaso/` folder. Any script on another site under the same user could read them, so don't publish other sites there that load third-party scripts. Today there are none. A custom domain or a dedicated GitHub organisation would give Repaso its own origin.
+- **No response headers on GitHub Pages.** The Content-Security-Policy is a `<meta>` tag, which can't set `frame-ancestors`, and `_headers` is ignored. A small script hides the page if it is framed. On Cloudflare Pages (plan B) `_headers` does apply.
+- **The Firebase SDK comes from Google's CDN** and can't carry an integrity hash when loaded as a module. The version is pinned, it loads only when someone signs in or is already signed in, and the CSP allows only that path. Bundling it into the repo would remove this risk at the cost of a build dependency.

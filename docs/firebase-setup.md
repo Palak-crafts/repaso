@@ -49,11 +49,13 @@ firebase: {
 
 These values are public by design. What protects the data is `firebase/firestore.rules`, not the key. Restrict the API key to your domain anyway in Google Cloud Console > APIs & Services > Credentials: add an HTTP referrer limit for `babylonace.github.io/*`.
 
+Then tighten the Content-Security-Policy in `public/index.html`: replace `https://*.firebaseapp.com` in `frame-src` with exactly `https://<project>.firebaseapp.com`, so the site can't frame another Firebase project.
+
 Push to `main` and it deploys.
 
 ## 5. Check it
 
-Sign in with both providers on the live site, answer a question, then sign in on your phone and check the progress is there. The emulator tests cover the logic, but only the live site can prove the real Google and GitHub logins and the browser security policy.
+Open the browser console first, since the Content-Security-Policy has only been tried with the emulators (they run with it switched off). Sign in with both providers on the live site, and look for blocked requests, then loosen the policy only for what you see blocked. Sign in with both providers, answer a question, then sign in on your phone and check the progress is there. The emulator tests cover the logic, but only the live site can prove the real Google and GitHub logins and the browser security policy.
 
 Suggestions show up in the Firestore console, in the `suggestions` collection.
 

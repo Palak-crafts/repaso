@@ -11,19 +11,20 @@ service cloud.firestore {
       allow create, update: if isOwner()
         && request.resource.data.keys().hasOnly(['data', 'updatedAt'])
         && request.resource.data.data is string
-        && request.resource.data.data.size() <= 300000
+        && request.resource.data.data.size() <= 100000
         && request.resource.data.updatedAt is timestamp;
     }
 
-    // Suggestions can be sent by signed-in people and never read from the site.
-    // Adriana reads them in the Firebase console.
+    // Suggestions: a signed-in person can send them, and can read or delete only their own
+    // (so deleting an account can remove them). Adriana reads all of them in the Firebase console.
     match /suggestions/{id} {
+      allow read, delete: if request.auth != null && resource.data.uid == request.auth.uid;
       allow create: if request.auth != null
         && request.resource.data.keys().hasOnly(['uid', 'kind', 'ref', 'text', 'lang', 'createdAt'])
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.kind in ['fix', 'new']
         && request.resource.data.ref is string
-        && request.resource.data.ref.size() <= 40
+        && request.resource.data.ref.size() <= 12
         && request.resource.data.text is string
         && request.resource.data.text.size() >= 10
         && request.resource.data.text.size() <= 2000

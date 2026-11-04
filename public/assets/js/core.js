@@ -11,6 +11,30 @@ export function validProgress(p) {
   return !!p && typeof p === "object" && !!p.items && typeof p.items === "object" && !!p.stats && typeof p.stats === "object";
 }
 
+/**
+ * Rebuilds a progress document from untrusted input (a file, the cloud, old storage).
+ * Keeps only known question ids and clamps every number, so a damaged or hostile document
+ * can never put NaN into the scheduler or add keys like "__proto__".
+ */
+export function sanitizeProgress(p, known) {
+  if (!validProgress(p)) return blankProgress();
+  const num = (v, max = Number.MAX_SAFE_INTEGER) => (Number.isFinite(v) ? Math.min(Math.max(Math.trunc(v), 0), max) : 0);
+  const out = blankProgress();
+  const has = (id) => (known ? known[id] !== undefined : true);
+  for (const id of Object.keys(p.items)) {
+    const x = p.items[id];
+    if (!x || typeof x !== "object" || id === "__proto__" || !has(id)) continue;
+    out.items[id] = { b: num(x.b, 5), d: num(x.d, 8.64e15), n: num(x.n), c: num(x.c), w: num(x.w), l: x.l ? 1 : 0, t: num(x.t, 8.64e15) };
+  }
+  const s = p.stats;
+  out.stats = { answered: num(s.answered), correct: num(s.correct), streak: num(s.streak), best: num(s.best) };
+  for (const [k, v] of Object.entries(p.studied && typeof p.studied === "object" ? p.studied : {})) if (v && k !== "__proto__" && has(k)) out.studied[k] = 1;
+  for (const [k, v] of Object.entries(p.levels && typeof p.levels === "object" ? p.levels : {})) if (k !== "__proto__" && /^[a-z]{1,8}$/.test(k)) out.levels[k] = num(v, 3);
+  out.updatedAt = num(p.updatedAt, 8.64e15);
+  if (typeof p.owner === "string" && p.owner.length <= 128) out.owner = p.owner;
+  return out;
+}
+
 export function shuffle(list, rand = Math.random) {
   const a = list.slice();
   for (let i = a.length - 1; i > 0; i--) {
@@ -43,11 +67,12 @@ export function richText(t) {
 
 /** Applies one answer to one item. Returns the new item. New correct answers skip box 1. */
 export function gradeItem(item, ok, now = Date.now()) {
-  const x = { b: 0, d: 0, n: 0, c: 0, w: 0, l: 0, ...(item || {}) };
+  const x = { b: 0, d: 0, n: 0, c: 0, w: 0, l: 0, t: 0, ...(item || {}) };
   x.n++;
   if (ok) { x.c++; x.b = x.b === 0 ? 2 : Math.min(5, x.b + 1); }
   else { x.w++; x.b = 1; }
   x.l = ok ? 1 : 0;
+  x.t = now; // when it was last answered, so a merge can tell which device saw it last
   x.d = now + INTERVAL_DAYS[x.b] * DAY;
   return x;
 }
@@ -71,7 +96,8 @@ export function refreshLevels(progress, bank, topics) {
     let cur = levels[k] ?? 0;
     while (cur < 3) {
       const s = levelStats(progress, bank, k, cur);
-      if (cur === 0 ? !s.total || s.ok >= s.need : s.total && s.ok >= s.need) { cur++; ups.push({ cat: k, level: cur }); }
+      if (!s.total || s.ok >= s.need) { // an empty level never blocks the next one
+        cur++; ups.push({ cat: k, level: cur }); }
       else break;
     }
     levels[k] = cur;
@@ -94,10 +120,17 @@ export function mergeProgress(a, b) {
   for (const id of new Set([...Object.keys(a.items), ...Object.keys(b.items)])) {
     const x = a.items[id], y = b.items[id];
     if (!x || !y) { out.items[id] = { ...(x || y) }; continue; }
-    out.items[id] = { ...(x.n > y.n || (x.n === y.n && x.d >= y.d) ? x : y) };
+    const tx = x.t || 0, ty = y.t || 0; // the most recent answer wins; without timestamps, the one with more answers
+    out.items[id] = { ...(tx !== ty ? (tx > ty ? x : y) : x.n > y.n || (x.n === y.n && x.d >= y.d) ? x : y) };
   }
   const main = a.stats.answered >= b.stats.answered ? a.stats : b.stats;
   out.stats = { ...main, best: Math.max(a.stats.best || 0, b.stats.best || 0) };
+  if (Object.keys(out.items).length) { // totals follow the merged items, so answers from both devices are counted
+    const sum = (k) => Object.values(out.items).reduce((n, x) => n + (x[k] || 0), 0);
+    out.stats.answered = sum("n");
+    out.stats.correct = Math.min(sum("c"), out.stats.answered);
+  }
+  if (typeof a.owner === "string" || typeof b.owner === "string") out.owner = typeof a.owner === "string" ? a.owner : b.owner;
   out.studied = { ...(a.studied || {}), ...(b.studied || {}) };
   for (const k of new Set([...Object.keys(a.levels || {}), ...Object.keys(b.levels || {})]))
     out.levels[k] = Math.max(a.levels?.[k] ?? 0, b.levels?.[k] ?? 0);
@@ -123,7 +156,7 @@ export function searchDocs({ bank, glossary, topics, es }) {
     docs.push({
       kind: "question", key: q.id,
       title: normalize(`${q.id} ${q.q} ${e?.q ?? ""}`),
-      body: normalize([q.r, q.fa, typeof q.a === "string" ? q.a : "", q.t === "m" ? q.o[q.a] : "", e?.r, e?.fa, e?.a].filter(Boolean).join(" ")),
+      body: normalize([q.c, q.r, q.fa, typeof q.a === "string" ? q.a : "", q.t === "m" ? q.o[q.a] : "", e?.r, e?.fa, e?.a].filter(Boolean).join(" ")),
     });
   }
   return docs;

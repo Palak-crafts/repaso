@@ -27,7 +27,7 @@ const ok = (v, msg) => { if (!v) throw new Error(msg || "assertion failed"); };
 const browser = await chromium.launch();
 async function device() {
   // Service workers are blocked so the patched config below is what the page really loads.
-  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, bypassCSP: true, serviceWorkers: "block" });
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, bypassCSP: true, serviceWorkers: "block", locale: "en-US" });
   await ctx.route("**/assets/js/config.js", async (r) => {
     const res = await r.fetch();
     const body = (await res.text()).replace("firebase: null",
@@ -113,6 +113,34 @@ await check("a second device gets the same progress after signing in", async () 
   ok((await itemCount(b.page)) === answered, `answers: ${await itemCount(b.page)}`);
 });
 
+const idsOf = (p) => p.evaluate(() => Object.keys(JSON.parse(localStorage.getItem("repaso-progress-v1")).items));
+const hide = (p) => p.evaluate(() => {
+  Object.defineProperty(document, "visibilityState", { get: () => "hidden", configurable: true });
+  document.dispatchEvent(new Event("visibilitychange"));
+});
+async function cloudHas(ids) {
+  for (let i = 0; i < 40; i++) {
+    const d = await cloudDoc();
+    if (d && ids.every((x) => x in d.data.items)) return true;
+    await new Promise((r) => setTimeout(r, 250));
+  }
+  return false;
+}
+await check("two devices signed in at once: the second save keeps what the first one saved", async () => {
+  await answer(a.page);                       // device A answers and saves
+  const aIds = await idsOf(a.page);
+  await hide(a.page);
+  ok(await cloudHas(aIds), "A did not reach the cloud");
+  // Device B has been open the whole time and has not seen A's answer. It answers without reloading.
+  await b.page.evaluate(() => { location.hash = "#/"; });
+  await b.page.locator(".opt").first().click();
+  await b.page.locator("[data-act=next]").waitFor();
+  const bIds = await idsOf(b.page);
+  await hide(b.page);
+  ok(await cloudHas([...aIds, ...bIds]), "B overwrote A, or never saved");
+  ok((await idsOf(b.page)).length >= aIds.length, "B did not take A's answers");
+});
+
 /* ---------- security rules, through the REST API like the site uses it ---------- */
 async function token(email) {
   const r = await fetch(`${AUTH}/identitytoolkit.googleapis.com/v1/accounts:signUp?key=demo`, {
@@ -137,9 +165,9 @@ await check("rules: nobody can overwrite or delete another person's progress", a
 await check("rules: your own document accepts data and refuses junk", async () => {
   ok((await put(stranger.uid, { data: { stringValue: "{}" }, updatedAt: now() }, stranger.idToken)).ok);
   ok((await put(stranger.uid, { data: { stringValue: "{}" }, updatedAt: now(), admin: { booleanValue: true } }, stranger.idToken)).status === 403, "extra field accepted");
-  ok((await put(stranger.uid, { data: { stringValue: "x".repeat(300001) }, updatedAt: now() }, stranger.idToken)).status === 403, "oversize accepted");
+  ok((await put(stranger.uid, { data: { stringValue: "x".repeat(100001) }, updatedAt: now() }, stranger.idToken)).status === 403, "oversize accepted");
 });
-await check("rules: suggestions are write-only and validated", async () => {
+await check("rules: suggestions can be sent, validated, not forged and not listed", async () => {
   const f = (text, uid = stranger.uid) => ({ uid: { stringValue: uid }, kind: { stringValue: "new" }, ref: { stringValue: "" }, text: { stringValue: text }, lang: { stringValue: "en" }, createdAt: now() });
   const post = (fields, t) => fetch(`${DOCS}/suggestions`, { method: "POST", headers: t ? as(t) : { "Content-Type": "application/json" }, body: JSON.stringify({ fields }) });
   ok((await post(f("A perfectly fine suggestion"), stranger.idToken)).ok);
@@ -155,12 +183,18 @@ await check("rules: other collections are closed", async () => {
 
 await check("delete account: the cloud document is gone", async () => {
   await a.page.goto(`${BASE}#/account`);
+  answered = await itemCount(a.page);
   await a.page.locator("[data-arm=delete]").click();
   await a.page.locator("[data-arm=delete]").click();
   await a.page.locator("[data-signin=google]").waitFor();
   const r = await fetch(`${DOCS}/users/${firstUid}`, { headers: owner });
   ok(r.status === 404, `status ${r.status}`);
-  ok((await itemCount(a.page)) === answered, "local progress should stay");
+  ok((await itemCount(a.page)) >= answered, "local progress should stay");
+});
+await check("delete account: the suggestions sent from the site are gone too", async () => {
+  const list = await (await fetch(`${DOCS}/suggestions`, { headers: owner })).json();
+  ok(!(list.documents || []).some((d) => d.fields.uid.stringValue === firstUid), "suggestion left behind");
+  ok((list.documents || []).some((d) => d.fields.uid.stringValue === stranger.uid), "someone else's suggestion was removed");
 });
 
 await browser.close();

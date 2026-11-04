@@ -2,7 +2,7 @@
 export const STRINGS = {
   en: {
     "skip": "Skip to content", "nav.practice": "Practice", "nav.study": "Study",
-    "foot.about": "How it works", "foot.privacy": "Privacy", "foot.suggest": "Suggest a question or fix",
+    "foot.browse": "All topics", "foot.about": "How it works", "foot.privacy": "Privacy", "foot.suggest": "Suggest a question or fix",
     "aria.theme": "Switch theme", "aria.account": "Account and saved progress", "aria.home": "Repaso home",
     "title.home": "Repaso: practice software interview questions", "title.practice": "Practice", "title.study": "Study", "title.search": "Search", "title.terms": "Glossary", "title.about": "How it works", "title.privacy": "Privacy", "title.account": "Your progress", "title.suggest": "Suggest a question or fix", "title.quiz": "Practice session", "title.done": "Session finished",
     "home.h1": "Practice for your software interview.",
@@ -19,7 +19,7 @@ export const STRINGS = {
     "setup.auto": "Unlock as I learn", "setup.anylevel": "All levels", "setup.level.hint": "Each topic starts at Foundations. Get 70% of a level right and the next one unlocks.",
     "mode.smart": "Smart review", "mode.all": "Random", "mode.weak": "My misses", "mode.exam": "Exam",
     "mode.smart.d": "Questions due today first, then new ones, easiest first.", "mode.all.d": "Random questions from your unlocked levels.", "mode.weak.d": "Only the questions you got wrong last time.", "mode.exam.d": "Timed multiple choice. Running out of time counts as a miss.",
-    "setup.go": "Start {n} questions", "setup.empty.smart": "Nothing due. Come back later or try Random.", "setup.empty.weak": "No misses to review.", "setup.empty.topics": "Select at least one topic.",
+    "setup.go": "Start {n} questions", "err.storage": "This browser is not letting Repaso save your progress. Download it from Your progress to keep it.", "setup.empty.smart": "Nothing due. Come back later or try Random.", "setup.empty.weak": "No misses to review.", "setup.empty.topics": "Select at least one topic.",
     "setup.progress": "Progress by topic", "setup.mastered": "{m} of {t} mastered", "setup.goal": "{ok} of {need} right to unlock {level}", "setup.top": "All levels unlocked",
     "done.title": "Session finished", "done.correct": "{p}% correct", "done.timeouts": "{n} ran out of time", "done.missed": "Missed this session", "done.clean": "No misses. Clean run.", "done.retry": "Retry {n} missed", "done.again": "Another session", "done.home": "Home", "done.save": "Save this progress across devices",
     "stat.accuracy": "Accuracy", "stat.answered": "Answered", "stat.streak": "Best streak",
@@ -37,7 +37,7 @@ export const STRINGS = {
   },
   es: {
     "skip": "Saltar al contenido", "nav.practice": "Practicar", "nav.study": "Estudiar",
-    "foot.about": "Cómo funciona", "foot.privacy": "Privacidad", "foot.suggest": "Sugerir una pregunta o corrección",
+    "foot.browse": "Todos los temas", "foot.about": "Cómo funciona", "foot.privacy": "Privacidad", "foot.suggest": "Sugerir una pregunta o corrección",
     "aria.theme": "Cambiar tema", "aria.account": "Cuenta y progreso guardado", "aria.home": "Inicio de Repaso",
     "title.home": "Repaso: practica preguntas de entrevista de software", "title.practice": "Practicar", "title.study": "Estudiar", "title.search": "Buscar", "title.terms": "Glosario", "title.about": "Cómo funciona", "title.privacy": "Privacidad", "title.account": "Tu progreso", "title.suggest": "Sugerir una pregunta o corrección", "title.quiz": "Sesión de práctica", "title.done": "Sesión terminada",
     "home.h1": "Practica para tu entrevista de software.",
@@ -54,7 +54,7 @@ export const STRINGS = {
     "setup.auto": "Desbloquear al aprender", "setup.anylevel": "Todos los niveles", "setup.level.hint": "Cada tema empieza en Fundamentos. Acierta el 70% de un nivel y se desbloquea el siguiente.",
     "mode.smart": "Repaso inteligente", "mode.all": "Al azar", "mode.weak": "Mis fallos", "mode.exam": "Examen",
     "mode.smart.d": "Primero las preguntas que tocan hoy, luego las nuevas, de la más fácil a la más difícil.", "mode.all.d": "Preguntas al azar de tus niveles desbloqueados.", "mode.weak.d": "Solo las preguntas que fallaste la última vez.", "mode.exam.d": "Opción múltiple con tiempo. Si se acaba el tiempo, cuenta como fallo.",
-    "setup.go": "Empezar {n} preguntas", "setup.empty.smart": "No hay nada para hoy. Vuelve más tarde o prueba Al azar.", "setup.empty.weak": "No tienes fallos que repasar.", "setup.empty.topics": "Elige al menos un tema.",
+    "setup.go": "Empezar {n} preguntas", "err.storage": "Este navegador no deja que Repaso guarde tu progreso. Descárgalo desde Tu progreso para conservarlo.", "setup.empty.smart": "No hay nada para hoy. Vuelve más tarde o prueba Al azar.", "setup.empty.weak": "No tienes fallos que repasar.", "setup.empty.topics": "Elige al menos un tema.",
     "setup.progress": "Progreso por tema", "setup.mastered": "{m} de {t} dominadas", "setup.goal": "{ok} de {need} aciertos para desbloquear {level}", "setup.top": "Todos los niveles desbloqueados",
     "done.title": "Sesión terminada", "done.correct": "{p}% de aciertos", "done.timeouts": "{n} sin tiempo", "done.missed": "Falladas en esta sesión", "done.clean": "Ningún fallo. Sesión perfecta.", "done.retry": "Reintentar {n} falladas", "done.again": "Otra sesión", "done.home": "Inicio", "done.save": "Guardar este progreso entre dispositivos",
     "stat.accuracy": "Aciertos", "stat.answered": "Respondidas", "stat.streak": "Mejor racha",
@@ -89,12 +89,13 @@ export const PAGES = {
     privacy: `<h1>Privacy</h1>
 <p>Short version: you can use all of Repaso without giving any data. There are no ads, no trackers and no analytics.</p>
 <h2>Without an account</h2>
-<p>Your progress and preferences stay in this browser (local storage). They are never sent anywhere. Fonts and all other files are served from this site, so no third party is contacted.</p>
+<p>Your progress and preferences stay in this browser (local storage, plus an offline copy of the site). Repaso never sends them anywhere. The site is hosted on GitHub Pages, so GitHub receives your IP address and browser details when a page loads, like any website. Repaso loads no fonts, scripts or trackers from any other company.</p>
 <h2>With an optional account</h2>
-<p>If you sign in with Google or GitHub, Repaso stores in Firebase (Google): your email and provider ID, kept by the sign-in service, and your practice progress. That is all. The purpose is to give you your progress on other devices. The legal basis is your consent, given when you sign in, and you can withdraw it at any time.</p>
-<p>Only you can read your progress: security rules tie each record to your account.</p>
+<p>If you sign in with Google or GitHub, Firebase (Google) keeps your email address, your name and profile picture from that account, a user ID, your sign-in dates and your practice progress. Your browser also stores a sign-in token. While you are signed in, your browser contacts Google servers (including to load the sign-in code) each time you open the site, and Google logs standard connection data such as your IP address. The purpose is to give you your progress on other devices. The legal basis is your consent, given when you sign in, and you can withdraw it at any time.</p>
+<p>Other people cannot read your progress: security rules tie each record to your account. As the owner of the project I could technically see it in the Firebase console, and I don't look.</p>
+<p>If you send a suggestion from the site, it is stored with your user ID. If you choose "Open on GitHub" instead, the text goes to GitHub as a public issue under your GitHub name.</p>
 <h2>Your rights</h2>
-<p>In <a href="#/account">Your progress</a> you can download your data and delete your account and cloud data at any time. Deleting is immediate and final. Suggestions you send are kept to review them; to ask for one to be removed, or for any question about your data, open an issue on GitHub.</p>
+<p>In <a href="#/account">Your progress</a> you can download your data and delete your account and cloud data at any time. Deleting removes your account, your cloud progress and the suggestions you sent from the site. For any question about your data, open an issue on GitHub. Google keeps its own logs, which I can't control.</p>
 <h2>Who runs this</h2>
 <p>Adriana Babilonia, as a personal, non-commercial project.</p>`,
   },
@@ -114,12 +115,13 @@ export const PAGES = {
     privacy: `<h1>Privacidad</h1>
 <p>En resumen: puedes usar todo Repaso sin dar ningún dato. No hay anuncios, ni rastreadores, ni analítica.</p>
 <h2>Sin cuenta</h2>
-<p>Tu progreso y tus preferencias se quedan en este navegador (almacenamiento local). Nunca se envían a ningún sitio. Las fuentes y todos los archivos se sirven desde este sitio, así que no se contacta a ningún tercero.</p>
+<p>Tu progreso y tus preferencias se quedan en este navegador (almacenamiento local, más una copia del sitio para usarlo sin conexión). Repaso nunca los envía a ningún sitio. El sitio está alojado en GitHub Pages, así que GitHub recibe tu dirección IP y los datos de tu navegador cuando carga una página, como cualquier sitio web. Repaso no carga fuentes, scripts ni rastreadores de ninguna otra empresa.</p>
 <h2>Con una cuenta opcional</h2>
-<p>Si inicias sesión con Google o GitHub, Repaso guarda en Firebase (Google): tu correo y el identificador del proveedor, que conserva el servicio de inicio de sesión, y tu progreso de práctica. Nada más. La finalidad es darte tu progreso en otros dispositivos. La base legal es tu consentimiento, que das al iniciar sesión y puedes retirar cuando quieras.</p>
-<p>Solo tú puedes leer tu progreso: las reglas de seguridad atan cada registro a tu cuenta.</p>
+<p>Si inicias sesión con Google o GitHub, Firebase (Google) guarda tu correo, tu nombre y tu foto de perfil de esa cuenta, un identificador de usuario, tus fechas de inicio de sesión y tu progreso de práctica. Tu navegador también guarda un token de sesión. Mientras tienes la sesión iniciada, tu navegador contacta con servidores de Google (también para cargar el código de inicio de sesión) cada vez que abres el sitio, y Google registra datos de conexión habituales como tu dirección IP. La finalidad es darte tu progreso en otros dispositivos. La base legal es tu consentimiento, que das al iniciar sesión y puedes retirar cuando quieras.</p>
+<p>Otras personas no pueden leer tu progreso: las reglas de seguridad atan cada registro a tu cuenta. Como dueña del proyecto, técnicamente podría verlo en la consola de Firebase, y no lo miro.</p>
+<p>Si envías una sugerencia desde el sitio, se guarda con tu identificador de usuario. Si eliges "Abrir en GitHub", el texto va a GitHub como un issue público con tu nombre de GitHub.</p>
 <h2>Tus derechos</h2>
-<p>En <a href="#/account">Tu progreso</a> puedes descargar tus datos y eliminar tu cuenta y tus datos en la nube cuando quieras. La eliminación es inmediata y definitiva. Las sugerencias que envíes se conservan para revisarlas; para pedir que se borre alguna, o para cualquier duda sobre tus datos, abre un issue en GitHub.</p>
+<p>En <a href="#/account">Tu progreso</a> puedes descargar tus datos y eliminar tu cuenta y tus datos en la nube cuando quieras. Al eliminar se borran tu cuenta, tu progreso en la nube y las sugerencias que enviaste desde el sitio. Para cualquier duda sobre tus datos, abre un issue en GitHub. Google conserva sus propios registros, que no puedo controlar.</p>
 <h2>Quién está detrás</h2>
 <p>Adriana Babilonia, como proyecto personal y sin fines comerciales.</p>`,
   },

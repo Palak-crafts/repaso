@@ -32,7 +32,7 @@ export async function signOutUser() { await load(); await A.signOut(auth); }
 
 async function call(path, init = {}) {
   const token = await auth.currentUser.getIdToken();
-  return fetch(`${FIRESTORE}/${path}`, {
+  return fetch(path.startsWith(":") ? `${FIRESTORE}${path}` : `${FIRESTORE}/${path}`, {
     ...init,
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
   });
@@ -50,7 +50,9 @@ export async function pull() {
 /** Progress is stored as one JSON string, in one document per person. One save = one write. */
 export async function push(progress) {
   const body = { fields: { data: { stringValue: JSON.stringify(progress) }, updatedAt: { timestampValue: new Date().toISOString() } } };
-  const r = await call(userDoc(), { method: "PATCH", body: JSON.stringify(body) });
+  const json = JSON.stringify(body);
+  // keepalive lets the last save survive a closing tab, but the browser caps such a request at 64 KB
+  const r = await call(userDoc(), { method: "PATCH", body: json, keepalive: json.length < 60000 });
   if (!r.ok) throw new Error(`push ${r.status}`);
 }
 export async function suggest({ kind, ref, text, lang }) {
@@ -61,8 +63,20 @@ export async function suggest({ kind, ref, text, lang }) {
   const r = await call("suggestions", { method: "POST", body: JSON.stringify(body) });
   if (!r.ok) throw new Error(`suggest ${r.status}`);
 }
-/** Erases the cloud document, then the account. Firebase may ask for a fresh sign-in first. */
+/** Erases the cloud document and the suggestions, then the account. Firebase may ask for a fresh sign-in first. */
 export async function deleteAccount() {
+  const uid = auth.currentUser.uid;
+  const q = await call(":runQuery", { method: "POST", body: JSON.stringify({ structuredQuery: {
+    from: [{ collectionId: "suggestions" }],
+    where: { fieldFilter: { field: { fieldPath: "uid" }, op: "EQUAL", value: { stringValue: uid } } },
+  } }) });
+  if (!q.ok) throw new Error(`suggestions ${q.status}`);
+  for (const row of await q.json()) {
+    const name = row.document?.name; // full path: projects/.../documents/suggestions/<id>
+    if (!name) continue;
+    const d = await call(name.split("/documents/")[1], { method: "DELETE" });
+    if (!d.ok && d.status !== 404) throw new Error(`delete suggestion ${d.status}`);
+  }
   const r = await call(userDoc(), { method: "DELETE" });
   if (!r.ok && r.status !== 404) throw new Error(`delete ${r.status}`);
   try { await A.deleteUser(auth.currentUser); }

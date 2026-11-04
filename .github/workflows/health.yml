@@ -1,0 +1,53 @@
+name: Weekly health check
+
+on:
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+      - name: Run the checks
+        id: run
+        run: |
+          set +e
+          : > report.md
+          fail() { echo "- $1" >> report.md; }
+          SITE="https://${GITHUB_REPOSITORY_OWNER}.github.io/${GITHUB_REPOSITORY#*/}"
+          SDK=$(node -p "(require('fs').readFileSync('public/assets/js/config.js','utf8').match(/sdkVersion: \"([^\"]+)\"/)||[])[1]||''")
+
+          npm test > test.log 2>&1 || fail "Unit tests fail on main. See the run log."
+          for p in "" "data/bank.en.json" "data/bank.es.json" "sitemap.xml" "q/db-07/" "es/q/db-07/"; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" -L "$SITE/$p")
+            [ "$code" = "200" ] || fail "$SITE/$p answers $code"
+          done
+          if [ -n "$SDK" ]; then
+            for m in app auth; do
+              code=$(curl -s -o /dev/null -w "%{http_code}" "https://www.gstatic.com/firebasejs/$SDK/firebase-$m.js")
+              [ "$code" = "200" ] || fail "Firebase SDK $SDK ($m) answers $code: sign-in would break"
+            done
+            LATEST=$(curl -s https://registry.npmjs.org/firebase/latest | node -p "JSON.parse(require('fs').readFileSync(0,'utf8')).version" 2>/dev/null)
+            [ -z "$LATEST" ] || [ "${LATEST%%.*}" = "${SDK%%.*}" ] || fail "Firebase SDK major version moved: using $SDK, latest is $LATEST (info, not urgent)"
+          fi
+          echo "failed=$([ -s report.md ] && echo yes || echo no)" >> "$GITHUB_OUTPUT"
+      - name: Open or update the issue
+        if: steps.run.outputs.failed == 'yes'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          body="The weekly check found:"$'\n\n'"$(cat report.md)"$'\n\n'"Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          n=$(gh issue list --label health --state open --json number --jq '.[0].number')
+          if [ -n "$n" ]; then gh issue comment "$n" --body "$body"; else gh issue create --label health --title "Weekly health check found a problem" --body "$body"; fi
