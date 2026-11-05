@@ -55,7 +55,7 @@ Push to `main` and it deploys.
 
 ## 5. Check it
 
-Open the browser console first, since the Content-Security-Policy has only been tried with the emulators (they run with it switched off). Sign in with both providers on the live site, and look for blocked requests, then loosen the policy only for what you see blocked. Sign in with both providers, answer a question, then sign in on your phone and check the progress is there. The emulator tests cover the logic, but only the live site can prove the real Google and GitHub logins and the browser security policy.
+The Content-Security-Policy already allows what the Google sign-in needs (found out the hard way: `https://apis.google.com/js/` and `https://apis.google.com/_/scs/abc-static/`, the Firebase SDK path and the project's own `firebaseapp.com` frame). If a Firebase upgrade changes what loads, look for blocked requests: open the browser console first, since the Content-Security-Policy has only been tried with the emulators (they run with it switched off). Sign in with both providers on the live site, and look for blocked requests, then loosen the policy only for what you see blocked. Sign in with both providers, answer a question, then sign in on your phone and check the progress is there. The emulator tests cover the logic, but only the live site can prove the real Google and GitHub logins and the browser security policy.
 
 Suggestions show up in the Firestore console, in the `suggestions` collection.
 
