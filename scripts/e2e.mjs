@@ -18,6 +18,19 @@ const answerOne = async (p) => { await p.locator(".opt").first().click(); };
 
 const browser = await chromium.launch();
 
+// The tests must not depend on whether the shipped config has accounts on. Every context gets the config
+// with accounts off, unless a test asks for the real one with rawContext().
+const FB = /firebase: (?:null|\{[\s\S]*?\n  \}),/;
+const rawContext = browser.newContext.bind(browser);
+browser.newContext = async (opts) => {
+  const c = await rawContext(opts);
+  await c.route("**/assets/js/config.js", async (r) => {
+    const res = await r.fetch();
+    await r.fulfill({ response: res, body: (await res.text()).replace(FB, "firebase: null,") });
+  });
+  return c;
+};
+
 for (const [label, viewport, touch] of [["mobile", { width: 390, height: 844 }, true], ["desktop", { width: 1280, height: 800 }, false]]) {
   const ctx = await browser.newContext({ viewport, hasTouch: touch, locale: "en-US" });
   const p = await ctx.newPage();
@@ -190,6 +203,25 @@ await check("static pages for search engines open, read without script and link 
   await ctx.close();
 });
 
+// The real config, as shipped: accounts are on, and still nothing talks to Google until someone signs in.
+await check("shipped config: accounts offered, and no request leaves the site before sign-in", async () => {
+  const ctx = await rawContext({ viewport: { width: 390, height: 844 }, locale: "en-US", serviceWorkers: "block" });
+  const p = await ctx.newPage();
+  p.setDefaultTimeout(6000);
+  const foreign = [];
+  p.on("request", (r) => { if (!r.url().startsWith(URL_) && !r.url().startsWith("data:")) foreign.push(r.url()); });
+  await p.goto(URL_);
+  await p.locator(".opt").first().waitFor();
+  for (const h of ["#/practice", "#/study", "#/terms", "#/about", "#/privacy", "#/suggest", "#/account"]) {
+    await p.evaluate((x) => { location.hash = x; }, h);
+    await p.waitForTimeout(150);
+  }
+  await p.locator("[data-signin=google]").waitFor();
+  await p.waitForTimeout(500);
+  ok(!foreign.length, `left the site: ${foreign[0]}`);
+  await ctx.close();
+});
+
 // Accounts turned on, but the service is unreachable: practice must not notice.
 await check("accounts on but Firebase unreachable: practice still works", async () => {
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: "en-US" });
@@ -199,7 +231,7 @@ await check("accounts on but Firebase unreachable: practice still works", async 
   p.on("pageerror", (e) => crashes.push(e.message));
   await p.route("**/assets/js/config.js", async (r) => {
     const res = await r.fetch();
-    const body = (await res.text()).replace("firebase: null", `firebase: { apiKey: "x", authDomain: "x.firebaseapp.com", projectId: "x", appId: "x" }`);
+    const body = (await res.text()).replace(FB, `firebase: { apiKey: "x", authDomain: "x.firebaseapp.com", projectId: "x", appId: "x" },`);
     await r.fulfill({ response: res, body });
   });
   await p.route(/gstatic\.com|googleapis\.com/, (r) => r.abort());

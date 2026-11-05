@@ -1,0 +1,8 @@
+# The Firebase web API key in public/assets/js/config.js is public by design: it identifies the project,
+# it is restricted to our domains in Google Cloud, and data access is decided by firebase/firestore.rules.
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Firebase web API key"
+regexes = ['''AIzaSyA6pTzQjjkq_QIX1E9qsiWR9YsOQftEwWo''']

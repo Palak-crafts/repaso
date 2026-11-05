@@ -30,8 +30,8 @@ async function device() {
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, bypassCSP: true, serviceWorkers: "block", locale: "en-US" });
   await ctx.route("**/assets/js/config.js", async (r) => {
     const res = await r.fetch();
-    const body = (await res.text()).replace("firebase: null",
-      `firebase: { apiKey: "demo", authDomain: "${PROJECT}.firebaseapp.com", projectId: "${PROJECT}", appId: "demo" }, emulator: { auth: "${AUTH}", firestore: "${STORE}" }`);
+    const body = (await res.text()).replace(/firebase: (?:null|\{[\s\S]*?\n  \}),/,
+      `firebase: { apiKey: "demo", authDomain: "${PROJECT}.firebaseapp.com", projectId: "${PROJECT}", appId: "demo" }, emulator: { auth: "${AUTH}", firestore: "${STORE}" },`);
     await r.fulfill({ response: res, body });
   });
   const page = await ctx.newPage();
