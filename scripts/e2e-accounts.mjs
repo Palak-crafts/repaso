@@ -29,10 +29,12 @@ async function device() {
   // Service workers are blocked so the patched config below is what the page really loads.
   const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, bypassCSP: true, serviceWorkers: "block", locale: "en-US" });
   await ctx.route("**/assets/js/config.js", async (r) => {
+    try {
     const res = await r.fetch();
     const body = (await res.text()).replace(/firebase: (?:null|\{[\s\S]*?\n  \}),/,
       `firebase: { apiKey: "demo", authDomain: "${PROJECT}.firebaseapp.com", projectId: "${PROJECT}", appId: "demo" }, emulator: { auth: "${AUTH}", firestore: "${STORE}" },`);
     await r.fulfill({ response: res, body });
+    } catch { /* closed while in flight */ }
   });
   const page = await ctx.newPage();
   page.setDefaultTimeout(12000);

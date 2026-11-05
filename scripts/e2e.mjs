@@ -25,8 +25,10 @@ const rawContext = browser.newContext.bind(browser);
 browser.newContext = async (opts) => {
   const c = await rawContext(opts);
   await c.route("**/assets/js/config.js", async (r) => {
-    const res = await r.fetch();
-    await r.fulfill({ response: res, body: (await res.text()).replace(FB, "firebase: null,") });
+    try {
+      const res = await r.fetch();
+      await r.fulfill({ response: res, body: (await res.text()).replace(FB, "firebase: null,") });
+    } catch { /* the page closed while the request was in flight */ }
   });
   return c;
 };
@@ -230,9 +232,11 @@ await check("accounts on but Firebase unreachable: practice still works", async 
   const crashes = [];
   p.on("pageerror", (e) => crashes.push(e.message));
   await p.route("**/assets/js/config.js", async (r) => {
+    try {
     const res = await r.fetch();
     const body = (await res.text()).replace(FB, `firebase: { apiKey: "x", authDomain: "x.firebaseapp.com", projectId: "x", appId: "x" },`);
     await r.fulfill({ response: res, body });
+    } catch { /* closed while in flight */ }
   });
   await p.route(/gstatic\.com|googleapis\.com/, (r) => r.abort());
   await p.addInitScript(() => { localStorage.setItem("repaso-signed-in", "1"); });
