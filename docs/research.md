@@ -36,7 +36,7 @@ Firebase details: [Auth limits](https://firebase.google.com/docs/auth/limits) al
 | Vercel Hobby | | Non-commercial only | No |
 | Netlify | | Sources disagree on the free limits | No |
 
-**Domain:** `babylonace.github.io/repaso/`. A custom domain costs money every year, so there isn't one. If that changes, it's a CNAME and an authorized domain in Firebase.
+**Domain:** `babylonace.github.io/repaso/`. Planned: `repaso.babylonace.dev` (a subdomain of a domain bought at GoDaddy, so one CNAME record plus an authorized domain in Firebase). Steps in [domain-migration.md](domain-migration.md); until they are done the github.io address stays canonical.
 
 ## D. Translation
 

@@ -21,7 +21,7 @@ const lsSet = (k, v) => {
 const lsDel = (k) => { try { localStorage.removeItem(k); } catch { /* same */ } };
 
 const bare = (o = {}) => Object.assign(Object.create(null), o);
-let TOPICS = [], TOPIC = bare(), BANK = [], BYID = bare(), GL = bare(), ES = null, esLoading = null, DOCS = null;
+let GROUPS = [], GROUP = bare(), TOPICS = [], TOPIC = bare(), BANK = [], BYID = bare(), GL = bare(), ES = null, esLoading = null, DOCS = null;
 let P = lsGet(KEYS.progress);
 if (!validProgress(P)) P = blankProgress();
 if (!P.studied) P.studied = {};
@@ -52,6 +52,10 @@ const t = (key, vars) => {
   if (vars) for (const k in vars) s = s.replaceAll(`{${k}}`, () => vars[k]);
   return s;
 };
+const groupName = (k) => (ui.lang === "es" ? GROUP[k].name_es : GROUP[k].name);
+const inGroup = (g) => TOPICS.filter((c) => c.g === g);
+/** "true" when every topic of the group is picked, "mixed" when only some are. */
+const groupState = (g) => { const ks = inGroup(g).map((c) => c.k), n = ks.filter((k) => ui.cats.has(k)).length; return n && n === ks.length ? "true" : n ? "mixed" : "false"; };
 const topicName = (k) => (ui.lang === "es" ? TOPIC[k].name_es : TOPIC[k].name);
 const lv = (n) => t(`lv.${n}`);
 
@@ -223,7 +227,7 @@ function resultsHTML(hits) {
   }).join("")}</ul>`;
 }
 function runSearch(query, limit) {
-  if (!DOCS) DOCS = searchDocs({ bank: BANK, glossary: GL, topics: TOPICS, es: ES });
+  if (!DOCS) DOCS = searchDocs({ bank: BANK, glossary: GL, topics: TOPICS, groups: GROUPS, es: ES });
   return search(DOCS, query, limit);
 }
 function loadEs() {
@@ -235,7 +239,7 @@ function loadEs() {
 }
 
 /* ---------- views ---------- */
-let homeQ = null;
+let homeQ = null, homeGroup = "all";
 function pickHome() {
   const pool = BANK.filter((q) => q.t === "m" && !q.c && unlocked(q));
   const d = due(pool), n = unseen(pool);
@@ -275,10 +279,11 @@ function viewHome() {
   ${showBoxes ? `<section class="section"><h2>${t("home.boxes")}</h2>${boxesHTML()}</section>` : ""}
   <section class="section">
     <div class="sec-head rv"><h2>${t("home.topics")}</h2></div>
-    <div class="topics">${TOPICS.map((c, i) => {
+    ${GROUPS.length > 1 ? `<div class="chips gfilter" role="group" aria-label="${t("home.groups")}"><button type="button" class="chip" data-hg="all" aria-pressed="${homeGroup === "all"}">${t("home.allgroups")} <small>${TOPICS.length}</small></button>${GROUPS.map((g) => `<button type="button" class="chip" data-hg="${g.k}" aria-pressed="${homeGroup === g.k}">${esc(groupName(g.k))} <small>${inGroup(g.k).length}</small></button>`).join("")}</div>` : ""}
+    ${(() => { let i = 0; return GROUPS.filter((g) => homeGroup === "all" || g.k === homeGroup).map((g) => `<div class="grp"><h3 class="grp-h">${esc(groupName(g.k))}</h3><div class="topics">${inGroup(g.k).map((c) => {
       const qs = BANK.filter((q) => q.cat === c.k), seen = qs.filter((q) => it(q)?.b >= 4).length;
-      return `<a class="tcard spot rv" style="--h:${topicHue(c.k)};--i:${i % 3}" href="#/study/${c.k}"><span class="ti">${topicIcon(c.k)}</span><b>${esc(topicName(c.k))}</b><small>${seen ? `${seen} / ` : ""}${t("home.nq", { n: qs.length })}</small>${seen ? `<span class="bar" aria-hidden="true"><i style="width:${pct(seen, qs.length)}%"></i></span>` : ""}</a>`;
-    }).join("")}</div>
+      return `<a class="tcard spot rv" style="--h:${topicHue(c.k)};--i:${i++ % 3}" href="#/study/${c.k}"><span class="ti">${topicIcon(c.k)}</span><b>${esc(topicName(c.k))}</b><small>${seen ? `${seen} / ` : ""}${t("home.nq", { n: qs.length })}</small>${seen ? `<span class="bar" aria-hidden="true"><i style="width:${pct(seen, qs.length)}%"></i></span>` : ""}</a>`;
+    }).join("")}</div></div>`).join(""); })()}
     <p><a href="#/terms">${t("home.glossary", { n: nTerms })}</a></p>
   </section>
   <section class="section">
@@ -314,7 +319,8 @@ function viewPractice() {
     <div class="chips">${MODES.map((m) => `<button type="button" class="chip" data-mode="${m}" aria-pressed="${ui.mode === m}">${t(`mode.${m}`)}</button>`).join("")}</div>
     <p class="muted">${t(`mode.${ui.mode}.d`)}</p></section>
   <section class="section"><div class="row between"><h2>${t("setup.topics")}</h2><button type="button" class="linkbtn" data-allcats>${ui.cats.size === TOPICS.length ? t("setup.none") : t("setup.all")}</button></div>
-    <div class="chips">${TOPICS.map((c) => `<button type="button" class="chip" data-cat="${c.k}" aria-pressed="${ui.cats.has(c.k)}">${esc(topicName(c.k))}</button>`).join("")}</div></section>
+    <p class="muted small">${t("setup.tree")}</p>
+    ${GROUPS.map((g) => `<div class="grp"><button type="button" class="chip gchip" data-grp="${g.k}" aria-pressed="${groupState(g.k)}">${esc(groupName(g.k))} <small>${inGroup(g.k).filter((c) => ui.cats.has(c.k)).length}/${inGroup(g.k).length}</small></button><div class="chips">${inGroup(g.k).map((c) => `<button type="button" class="chip" data-cat="${c.k}" aria-pressed="${ui.cats.has(c.k)}">${esc(topicName(c.k))}</button>`).join("")}</div></div>`).join("")}</section>
   <section class="section"><h2>${t("setup.level")}</h2>
     <div class="chips"><button type="button" class="chip" data-levels="auto" aria-pressed="${ui.levels === "auto"}">${t("setup.auto")}</button><button type="button" class="chip" data-levels="all" aria-pressed="${ui.levels === "all"}">${t("setup.anylevel")}</button></div>
     <p class="muted small">${t("setup.level.hint")}</p></section>
@@ -323,10 +329,10 @@ function viewPractice() {
   ${ui.mode === "exam" ? `<section class="section"><h2>${t("setup.time")}</h2><div class="chips">${TIMERS.map((s) => `<button type="button" class="chip" data-timer="${s}" aria-pressed="${ui.timer === s}">${s}</button>`).join("")}</div></section>` : ""}
   <button type="button" class="btn pri block" data-go="mode"${avail ? "" : " disabled"}>${avail ? t("setup.go", { n: Math.min(avail, ui.size) }) : t(empty)}</button>
   <section class="section"><h2>${t("setup.progress")}</h2>
-    <div>${TOPICS.map((c) => {
+    <div>${GROUPS.map((g) => `<h3 class="grp-h">${esc(groupName(g.k))}</h3>${inGroup(g.k).map((c) => {
       const qs = BANK.filter((q) => q.cat === c.k), m = qs.filter((q) => it(q)?.b >= 4).length, l = P.levels[c.k] ?? 0, s = l < 3 ? levelStats(P, BANK, c.k, l) : null;
       return `<a class="topic-row" href="#/study/${c.k}"><b>${esc(topicName(c.k))}</b><small>${lv(l)}</small><small>${s ? t("setup.goal", { ok: s.ok, need: s.need, level: lv(l + 1) }) : t("setup.top")}</small><small>${t("setup.mastered", { m, t: qs.length })}</small></a>`;
-    }).join("")}</div></section></div>`;
+    }).join("")}`).join("")}</div></section></div>`;
 }
 
 /* session */
@@ -471,11 +477,12 @@ function viewStudy(cat, lvArg) {
   const list = byLv(ui.stLv).sort((a, b) => a.l - b.l), read = list.filter((q) => P.studied[q.id]).length;
   const allOpen = list.length && list.every((q) => studyOpen.has(q.id));
   main.innerHTML = `<div class="stack">
+  <p class="crumb"><a href="#/">${esc(groupName(TOPIC[k].g))}</a></p>
   <h1>${esc(topicName(k))}</h1>
   <p class="muted">${t("study.lead")}</p>
   <button type="button" class="btn pri" data-go="topic" data-cat-go="${k}">${t("study.practice")}</button>
   <section class="section"><h2>${t("study.level")}</h2><div class="chips">${[0, 1, 2, 3, "all"].map((l) => `<a class="chip" href="#/study/${k}/${l}"${ui.stLv === l ? ' aria-current="true"' : ""} style="text-decoration:none">${l === "all" ? t("study.allv") : lv(l)} <small>${byLv(l).length}</small></a>`).join("")}</div></section>
-  <section class="section"><h2>${t("study.topic")}</h2><div class="chips">${TOPICS.map((c) => `<a class="chip" href="#/study/${c.k}/${ui.stLv}"${c.k === k ? ' aria-current="true"' : ""} style="text-decoration:none">${esc(topicName(c.k))}</a>`).join("")}</div></section>
+  <section class="section"><h2>${t("study.topic")}</h2>${GROUPS.map((g) => `<div class="grp"><h3 class="grp-h">${esc(groupName(g.k))}</h3><div class="chips">${inGroup(g.k).map((c) => `<a class="chip" href="#/study/${c.k}/${ui.stLv}"${c.k === k ? ' aria-current="true"' : ""} style="text-decoration:none">${esc(topicName(c.k))}</a>`).join("")}</div></div>`).join("")}</section>
   <section class="section"><div class="row between"><p class="muted small">${t("study.count", { n: list.length, d: read })}</p>${list.length ? `<button type="button" class="linkbtn" data-expand>${allOpen ? t("study.collapse") : t("study.expand")}</button>` : ""}</div>
   ${list.length ? `<div id="st-list">${list.map((q) => `<details class="sitem" data-id="${q.id}"${studyOpen.has(q.id) ? " open" : ""}><summary><span>${stem(q)}</span><span class="chk">${P.studied[q.id] ? "✓" : ""}</span></summary><div class="sbody">${studyOpen.has(q.id) ? studyBody(q) : ""}</div></details>`).join("")}</div>` : `<p class="muted">${t("study.none")}</p>`}</section></div>`;
 }
@@ -668,6 +675,8 @@ document.addEventListener("click", async (e) => {
   }
   if (d.mode) { ui.mode = d.mode; savePrefs(); render(); }
   else if (d.cat) { if (ui.cats.has(d.cat)) ui.cats.delete(d.cat); else ui.cats.add(d.cat); savePrefs(); render(); }
+  else if (d.grp) { const ks = inGroup(d.grp).map((c) => c.k), all = ks.every((k) => ui.cats.has(k)); ks.forEach((k) => (all ? ui.cats.delete(k) : ui.cats.add(k))); savePrefs(); render(); }
+  else if (d.hg) { homeGroup = d.hg; render(); }
   else if ("allcats" in d) { if (ui.cats.size === TOPICS.length) ui.cats.clear(); else TOPICS.forEach((c) => ui.cats.add(c.k)); savePrefs(); render(); }
   else if (d.levels) { ui.levels = d.levels; savePrefs(); render(); }
   else if (d.size) { ui.size = +d.size; savePrefs(); render(); }
@@ -778,6 +787,7 @@ async function boot() {
     const r = await fetch("data/bank.en.json");
     if (!r.ok) throw new Error(r.status);
     const d = await r.json();
+    GROUPS = d.groups; GROUPS.forEach((g) => { GROUP[g.k] = g; });
     TOPICS = d.topics; BANK = d.questions; GL = bare(d.glossary);
     TOPICS.forEach((c) => { TOPIC[c.k] = c; });
     BANK.forEach((q) => { BYID[q.id] = q; });

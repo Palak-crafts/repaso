@@ -53,7 +53,7 @@ async function banner(file, w, h) {
       #bn .beam::before{animation:none;--ang:210deg}#bn .deck .card{transform:rotate(1.6deg)}`;
     document.head.append(st);
     document.body.innerHTML = `<div id="bn"><div class="hero-copy">
-      <div class="brand big"><img src="icon.svg" alt=""><span>repaso</span></div>
+      <div class="brand big"><img src="icon.svg" alt=""><span>Repaso</span></div>
       <h1>Practice for your <mark class="grad">software interview</mark>.</h1>
       <p class="lead">${d.questions.length} questions. English and Spanish. No signup.</p>
       <div class="pills"><span>Python</span><span>Java</span><span>Spring</span><span>SQL</span><span>System design</span><span>Security</span></div></div>

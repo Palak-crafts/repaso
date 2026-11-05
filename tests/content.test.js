@@ -24,3 +24,14 @@ test("the validator catches a broken answer index", () => {
   const bad = { ...c, questions: c.questions.map((x) => (x.id === q.id ? { ...x, a: 9 } : x)) };
   assert.ok(validate(bad).some((m) => m === `${q.id}: answer index out of range`));
 });
+test("every topic sits in a known group and no group is empty", () => {
+  const keys = new Set(c.groups.map((g) => g.k));
+  for (const t of c.topics) assert.ok(keys.has(t.g), t.k);
+  for (const g of c.groups) assert.ok(c.topics.some((t) => t.g === g.k), g.k);
+});
+test("the validator catches a topic in an unknown group and an empty group", () => {
+  const orphan = { ...c, topics: c.topics.map((t, i) => (i === 0 ? { ...t, g: "nope" } : t)) };
+  assert.ok(validate(orphan).some((m) => m.startsWith(`${c.topics[0].k}: topic needs a known group`)));
+  const empty = { ...c, groups: [...c.groups, { k: "ghost", name: "Ghost", name_es: "Fantasma" }] };
+  assert.ok(validate(empty).some((m) => m.startsWith("ghost: group has no topics")));
+});

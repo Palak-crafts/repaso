@@ -4,7 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 import { loadContent, validate } from "./content.mjs";
-import { writeSeo } from "./seo.mjs";
+import { writeSeo, SITE } from "./seo.mjs";
 
 const content = loadContent();
 const problems = validate(content);
@@ -17,9 +17,9 @@ if (problems.length) {
 fs.rmSync("dist", { recursive: true, force: true, maxRetries: 20, retryDelay: 500 }); // OneDrive and antivirus can hold files for a moment
 fs.cpSync("public", "dist", { recursive: true });
 fs.mkdirSync("dist/data", { recursive: true });
-fs.writeFileSync("dist/index.html", fs.readFileSync("dist/index.html", "utf8").replaceAll("__COUNT__", String(content.questions.length)));
+fs.writeFileSync("dist/index.html", fs.readFileSync("dist/index.html", "utf8").replaceAll("__COUNT__", String(content.questions.length)).replaceAll("__SITE__", SITE));
 
-const en = { topics: content.topics, questions: content.questions, glossary: content.glossary };
+const en = { groups: content.groups, topics: content.topics, questions: content.questions, glossary: content.glossary };
 const es = { q: content.esQ, gl: content.esGl };
 fs.writeFileSync("dist/data/bank.en.json", JSON.stringify(en));
 fs.writeFileSync("dist/data/bank.es.json", JSON.stringify(es));

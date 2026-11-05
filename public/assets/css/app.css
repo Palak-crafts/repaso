@@ -378,3 +378,13 @@ body.in-quiz .foot { display: none; }
 @media print { body::before, body::after, .top, .foot, .actionbar { display: none; } }
 
 .hint { display: block; margin-top: 2px; font-weight: 400; font-size: .85em; color: var(--ink-2); overflow-wrap: anywhere; }
+
+/* Categories (groups) above topics */
+.gfilter { margin: 4px 0 18px; }
+.grp { margin: 0 0 22px; }
+.grp-h { font-family: var(--d); font-size: 1.05rem; font-weight: 800; letter-spacing: -.01em; color: var(--ink-2); margin: 0 0 10px; }
+.crumb { margin: 0; font-size: .9rem; }
+.crumb a { color: var(--ink-2); text-decoration: none; font-weight: 700; }
+.crumb a:hover { color: var(--blue); }
+.gchip { margin: 0 0 10px; font-weight: 800; border-style: dashed; }
+.gchip[aria-pressed="mixed"] { border-color: var(--blue); background: var(--blue-soft); border-style: solid; }

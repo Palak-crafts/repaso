@@ -65,7 +65,7 @@ ${alts}
 </head>
 <body>
 <header class="top">
-  <a class="brand" href="${up}" aria-label="Repaso"><img src="${up}icon.svg" alt="" width="32" height="32"><span>repaso</span></a>
+  <a class="brand" href="${up}" aria-label="Repaso"><img src="${up}icon.svg" alt="" width="32" height="32"><span>Repaso</span></a>
   <nav class="nav" aria-label="Main"><a href="${up}${lang === "es" ? "es/" : ""}t/">${t.browse}</a><a href="${up}${lang === "es" ? "es/" : ""}glossary/">${t.glossary}</a></nav>
   <div class="tools"><a class="tool lang" href="${alternates[lang === "en" ? "es" : "en"]}" hreflang="${lang === "en" ? "es" : "en"}">${t.other}</a></div>
 </header>
@@ -119,10 +119,12 @@ export function topicPage(topic, content, lang) {
 
 export function topicsIndex(content, lang) {
   const t = T[lang], rel = "t/", depth = lang === "es" ? 2 : 1;
-  const b = `<div class="stack"><h1>${t.topicsTitle}</h1><p>${t.free}</p><ul class="results">${content.topics.map((x) => {
+  const row = (x) => {
     const n = content.questions.filter((q) => q.cat === x.k).length;
     return `<li><a href="${"../".repeat(depth)}${prefix(lang)}t/${x.k}/"><b>${esc(lang === "es" ? x.name_es : x.name)}</b><small>${n} ${t.qs}</small></a></li>`;
-  }).join("")}</ul></div>`;
+  };
+  const sections = content.groups.map((g) => `<h2>${esc(lang === "es" ? g.name_es : g.name)}</h2><ul class="results">${content.topics.filter((x) => x.g === g.k).map(row).join("")}</ul>`).join("");
+  const b = `<div class="stack"><h1>${t.topicsTitle}</h1><p>${t.free}</p>${sections}</div>`;
   return { path: `${prefix(lang)}${rel}index.html`, rel, html: page({ lang, depth, title: `${t.topicsTitle} | Repaso`, description: t.topicsDesc(content.topics.length, content.questions.length), canonical: urlOf(lang, rel), alternates: both(rel), body: b }) };
 }
 
