@@ -22,3 +22,14 @@ The idea of these effects comes from component libraries such as Aceternity UI a
 ## Checks before a design change ships
 
 `npm test`, then `npm run e2e` (it checks horizontal scroll at 320 px, console errors and third-party requests). Look at the home page in light and dark, in both languages, at 390 px and 1280 px.
+
+## README pictures and the share image
+
+`npm run media` (`scripts/make-media.mjs`) builds the site, opens it in Playwright and redraws, from the real pages:
+
+- `docs/img/demo.gif`: a scripted session, about 22 seconds. The background aurora is frozen while recording, otherwise every frame changes and the file triples in size.
+- `docs/img/*.jpg`: the screenshots in the README.
+- `public/og.png` (1200x630): the picture other sites show when the link is shared. It is referenced from the `og:image` tag in `public/index.html` and is not cached for offline use.
+- `docs/img/social.png` (1280x640): upload it by hand in the repository settings, under "Social preview". GitHub has no API for that.
+
+Run it again after a visual change, and after the number of questions changes (the README also states the counts, update those by hand).

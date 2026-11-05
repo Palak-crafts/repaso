@@ -56,6 +56,8 @@ ${alts}
 <meta property="og:description" content="${esc(description)}">
 <meta property="og:type" content="article">
 <meta property="og:url" content="${canonical}">
+<meta property="og:image" content="${SITE}og.png">
+<meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="${up}icon.svg" type="image/svg+xml">
 <link rel="preload" href="${up}assets/fonts/bricolage-800.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="${up}assets/css/app.css">

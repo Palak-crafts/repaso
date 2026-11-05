@@ -46,3 +46,7 @@ Nothing else needs doing for the site to stay up. GitHub e-mails you when a work
 - It never touches the Firebase console, secrets or the repo settings.
 
 An agent only works when it's invoked. Between runs nobody is watching, which is why the workflows above exist.
+
+## When the content changes size
+
+The README and README.es.md state the number of questions and the per-topic table. After adding or removing questions, update those numbers and run `npm run media` so the banner and screenshots match.
