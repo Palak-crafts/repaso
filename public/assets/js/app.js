@@ -4,6 +4,8 @@ import {
 } from "./core.js";
 import { STRINGS, PAGES } from "./i18n.js";
 import { CONFIG } from "./config.js";
+import { topicIcon, topicHue } from "./icons.js";
+import { initFx, scan } from "./fx.js";
 
 const $ = (id) => document.getElementById(id);
 const main = $("main");
@@ -196,7 +198,21 @@ function boxesHTML(list = BANK) {
   <p class="boxes-cap"><span>${t("home.boxes.hint")}</span>${dueN ? `<span>${t("home.due", { n: dueN })}</span>` : ""}</p>`;
 }
 const SEARCH_ICON = `<svg viewBox="0 0 20 20" width="20" height="20" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M9 15.5a6.5 6.5 0 1 1 0-13 6.5 6.5 0 0 1 0 13Zm4.8-1.7L18 18"/></svg>`;
-const searchBox = (v = "") => `<div class="search" role="search">${SEARCH_ICON}<input id="q" type="search" enterkeyhint="search" autocomplete="off" aria-label="${t("home.search")}" placeholder="${t("home.search")}" value="${esc(v)}"></div>`;
+const searchBox = (v = "") => `<div class="search" role="search">${SEARCH_ICON}<input id="q" type="search" enterkeyhint="search" autocomplete="off" aria-label="${t("home.search")}" placeholder="${t("home.search")}" value="${esc(v)}"><kbd aria-hidden="true">/</kbd></div>`;
+const STEP_ICONS = [
+  '<path d="M5 12.500 10 17.500 19 7"/>',
+  '<path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.500 10.900c.6.500 1 1.200 1 2V16h5v-.1c0-.8.400-1.500 1-2A6 6 0 0 0 12 3Z"/>',
+  '<path d="M4 12a8 8 0 0 1 14-5.300L20 9M20 4v5h-5M20 12a8 8 0 0 1-14 5.300L4 15M4 20v-5h5"/>',
+].map((p) => `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`);
+/** Two rows of well-known names that scroll sideways. Decorative, so hidden from screen readers. */
+const MARQUEE = [
+  ["Python", "Java", "Spring Boot", "JPA", "SQL", "REST", "Docker", "Kubernetes", "Git", "JWT", "CI/CD", "Redis", "Big-O"],
+  ["Microservices", "OAuth", "Maven", "JUnit", "React", "HTTP", "Indexes", "Transactions", "Caching", "OWASP", "Linux", "Concurrency", "STAR method"],
+];
+const marqueeHTML = () => `<div class="marquee rv" aria-hidden="true">${MARQUEE.map((row, i) => {
+  const set = `<div class="mq-set">${row.map((w) => `<span>${w}</span>`).join("")}</div>`;
+  return `<div class="mq-row${i ? " rev" : ""}">${set}${set}</div>`;
+}).join("")}</div>`;
 
 function resultsHTML(hits) {
   return `<ul class="results">${hits.map((h) => {
@@ -231,32 +247,43 @@ function viewHome() {
   document.title = t("title.home");
   if (!homeQ) homeQ = pickHome();
   const q = homeQ.q, x = qx(q), showBoxes = P.stats.answered > 0;
+  const nTerms = Object.keys(GL).length;
+  const stat = (n, label, i) => `<div class="stat rv" style="--i:${i}"><b data-count="${n}">${n}</b><span>${label}</span></div>`;
   main.innerHTML = `
-  <section class="hero">
-    <h1>${t("home.h1")}</h1>
-    <p>${t("home.lead", { n: BANK.length })}</p>
-    ${searchBox()}
+  <section class="hero-grid">
+    <div class="hero-copy">
+      <p class="badge"><i class="dot" aria-hidden="true"></i>${t("home.badge", { n: BANK.length })}</p>
+      <h1>${t("home.h1").replace("<mark>", '<mark class="grad">')}</h1>
+      <p class="lead">${t("home.lead")}</p>
+      ${searchBox()}
+      <div class="quickrow">
+        <button type="button" class="btn pri" data-go="quick">${t("home.start", { n: ui.size })}</button>
+        <a class="btn" href="#/practice">${t("home.custom")}</a>
+      </div>
+    </div>
+    <div class="deck" id="hero-q">
+      <article class="card beam spot tilt">
+        ${metaHTML(q)}
+        <p class="qtext">${inline(x.q)}</p>
+        ${optionsHTML(q, homeQ.order)}
+      </article>
+    </div>
     <div id="found" hidden></div>
   </section>
-  <section class="section" id="hero-q">
-    <article class="card">
-      ${metaHTML(q)}
-      <p class="qtext">${inline(x.q)}</p>
-      ${optionsHTML(q, homeQ.order)}
-    </article>
-    <div class="quickrow">
-      <button type="button" class="btn pri" data-go="quick">${t("home.start", { n: ui.size })}</button>
-      <a class="btn" href="#/practice">${t("home.custom")}</a>
-    </div>
-  </section>
+  ${marqueeHTML()}
+  <div class="stats-grid">${stat(BANK.length, t("stat.q"), 0)}${stat(nTerms, t("stat.t"), 1)}${stat(TOPICS.length, t("stat.c"), 2)}${stat(2, t("stat.l"), 3)}</div>
   ${showBoxes ? `<section class="section"><h2>${t("home.boxes")}</h2>${boxesHTML()}</section>` : ""}
   <section class="section">
-    <h2>${t("home.topics")}</h2>
-    <div class="topics">${TOPICS.map((c) => {
+    <div class="sec-head rv"><h2>${t("home.topics")}</h2></div>
+    <div class="topics">${TOPICS.map((c, i) => {
       const qs = BANK.filter((q) => q.cat === c.k), seen = qs.filter((q) => it(q)?.b >= 4).length;
-      return `<a class="topic-row" href="#/study/${c.k}"><b>${esc(topicName(c.k))}</b><small>${seen ? `${seen} / ` : ""}${qs.length}</small></a>`;
+      return `<a class="tcard spot rv" style="--h:${topicHue(c.k)};--i:${i % 3}" href="#/study/${c.k}"><span class="ti">${topicIcon(c.k)}</span><b>${esc(topicName(c.k))}</b><small>${seen ? `${seen} / ` : ""}${t("home.nq", { n: qs.length })}</small>${seen ? `<span class="bar" aria-hidden="true"><i style="width:${pct(seen, qs.length)}%"></i></span>` : ""}</a>`;
     }).join("")}</div>
-    <p><a href="#/terms">${t("home.glossary", { n: Object.keys(GL).length })}</a></p>
+    <p><a href="#/terms">${t("home.glossary", { n: nTerms })}</a></p>
+  </section>
+  <section class="section">
+    <div class="sec-head rv"><span class="eyebrow">${t("how.eyebrow")}</span><h2>${t("how.h")}</h2></div>
+    <div class="steps">${[1, 2, 3].map((n) => `<div class="step rv" style="--i:${n - 1}"><span class="si">${STEP_ICONS[n - 1]}</span><b>${t(`how.${n}`)}</b><p>${t(`how.${n}d`)}</p></div>`).join("")}</div>
   </section>`;
 }
 function viewSearch(query) {
@@ -268,7 +295,7 @@ function paintSearch(query, limit, compact) {
   const box = $("found");
   if (!box) return;
   const q = query.trim();
-  if (compact) box.hidden = !q;
+  if (compact) { box.hidden = !q; box.closest(".hero-grid")?.classList.toggle("searching", !!q); }
   if (!q) { box.innerHTML = ""; if (compact) $("hero-q")?.removeAttribute("hidden"); return; }
   if (compact) $("hero-q")?.setAttribute("hidden", "");
   const all = runSearch(q, 400), hits = all.slice(0, limit);
@@ -403,13 +430,20 @@ function finish() {
   viewDone();
   scrollTo(0, 0);
 }
+/** A short burst of paper bits for a good session. Pure CSS, hidden under reduced motion. */
+function confettiHTML() {
+  const cols = ["#ffd93d", "#ff4f6a", "#7a5cff", "#2a5cf0", "#52e0a2"];
+  return `<div class="confetti" aria-hidden="true">${Array.from({ length: 36 }, (_, i) =>
+    `<i style="--x:${Math.round(Math.random() * 100)}%;--c:${cols[i % cols.length]};--t:${(2.2 + Math.random() * 1.6).toFixed(2)}s;--w:${(Math.random() * 0.5).toFixed(2)}s;--s:${Math.round(Math.random() * 160 - 80)}px;--r:${Math.round(Math.random() * 720 - 360)}deg"></i>`).join("")}</div>`;
+}
 function viewDone() {
   document.title = t("title.done");
   document.body.classList.remove("in-quiz");
   main.innerHTML = `<div class="stack">
   <h1>${t("done.title")}</h1>
-  <p class="score">${S.right} / ${S.total}</p>
-  <p class="muted">${t("done.correct", { p: pct(S.right, S.total) })}${S.exam ? `, ${t("done.timeouts", { n: S.timeouts })}` : ""}</p>
+  <div class="done-top"><div class="ring" style="--p:${pct(S.right, S.total)}"><p class="score">${S.right} / ${S.total}</p></div>
+  <p class="muted">${t("done.correct", { p: pct(S.right, S.total) })}${S.exam ? `, ${t("done.timeouts", { n: S.timeouts })}` : ""}</p></div>
+  ${pct(S.right, S.total) >= 80 && S.total >= 3 ? confettiHTML() : ""}
   <section class="section"><h2>${t("home.boxes")}</h2>${boxesHTML()}</section>
   <section class="section"><h2>${t("done.missed")}</h2>
   ${S.missed.length ? `<ul class="results">${S.missed.map((q) => `<li><a href="#/q/${q.id}"><b>${stem(q)}</b></a></li>`).join("")}</ul>` : `<p class="muted">${t("done.clean")}</p>`}</section>
@@ -534,7 +568,9 @@ function render() {
     term: () => viewTerm(r.a), terms: viewTerms, search: () => viewSearch(r.a || ""), about: () => viewPage("about"),
     privacy: () => viewPage("privacy"), account: viewAccount, suggest: () => viewSuggest(r.params),
   };
+  main.dataset.view = r.name;
   views[r.name]();
+  scan(main);
   if (keep) main.querySelector(keep)?.focus({ preventScroll: true });
   document.querySelectorAll("[data-nav]").forEach((a) => {
     const on = a.dataset.nav === r.name || (a.dataset.nav === "practice" && r.name === "quiz");
@@ -734,6 +770,7 @@ function switchTheme() {
 
 /* ---------- start ---------- */
 async function boot() {
+  initFx();
   $("foot-repo").href = `https://github.com/${CONFIG.repo}`;
   if (CONFIG.linkedin) { const l = $("foot-li"); l.href = CONFIG.linkedin; l.hidden = false; }
   paintChrome();

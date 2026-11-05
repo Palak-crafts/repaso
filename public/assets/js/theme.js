@@ -1,4 +1,5 @@
 // Runs before first paint so a saved theme never flashes the wrong colors.
+document.documentElement.classList.add("js"); // lets the CSS use scroll-reveal only when scripts run
 try {
   var t = localStorage.getItem("repaso-theme");
   if (t === "light" || t === "dark") document.documentElement.dataset.theme = t;

@@ -57,12 +57,13 @@ ${alts}
 <meta property="og:type" content="article">
 <meta property="og:url" content="${canonical}">
 <link rel="icon" href="${up}icon.svg" type="image/svg+xml">
+<link rel="preload" href="${up}assets/fonts/bricolage-800.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="${up}assets/css/app.css">
 <script src="${up}assets/js/theme.js"></script>
 </head>
 <body>
 <header class="top">
-  <a class="brand" href="${up}" aria-label="Repaso">repaso</a>
+  <a class="brand" href="${up}" aria-label="Repaso"><img src="${up}icon.svg" alt="" width="32" height="32"><span>repaso</span></a>
   <nav class="nav" aria-label="Main"><a href="${up}${lang === "es" ? "es/" : ""}t/">${t.browse}</a><a href="${up}${lang === "es" ? "es/" : ""}glossary/">${t.glossary}</a></nav>
   <div class="tools"><a class="tool lang" href="${alternates[lang === "en" ? "es" : "en"]}" hreflang="${lang === "en" ? "es" : "en"}">${t.other}</a></div>
 </header>
