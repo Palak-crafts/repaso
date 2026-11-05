@@ -86,19 +86,7 @@ Read [maintenance.md](maintenance.md#adding-content) first. Then:
 
 ## Prompts, one per chat
 
-Each prompt is self-contained: paste it in a new Claude Code chat opened in this repo. Replace `<CATEGORY>` and the topic list with the row you are doing.
-
-```
-Trabajo en Repaso (esta carpeta). Lee primero docs/content-plan.md y docs/maintenance.md (sección Adding content).
-Tarea: añadir la categoría "<CATEGORY>" con estos temas: <TEMAS DE LA TABLA, con su k y prefijo>.
-Para cada tema: investiga qué se pregunta hoy en entrevistas (guías recientes, documentación oficial), escribe ~40 preguntas
-siguiendo "Quality bar" del plan, verifica cada dato con fuente oficial y apunta las fuentes. Traduce al español con el flujo
-npm run i18n. Sigue "How to add a category and its topics" paso a paso (groups.json, topics.json, icons.js, glosario, tests, README).
-Reglas: commits solo locales, autor 344108195+babylonace@users.noreply.github.com, sin línea de coautor; no hagas push hasta que yo diga sí.
-Al final: dime cuántas preguntas añadiste por tema y nivel, qué dudas de veracidad quedan, y propón la actualización del vault.
-```
-
-Suggested chat names: `repaso-ai`, `repaso-data`, `repaso-cloud`, `repaso-lang-web`, `repaso-cs-qa-mobile`, `repaso-embedded`, `repaso-team`.
+The seven ready-to-paste prompts, with the exact topics, keys and prefixes of each chat, are in [content-prompts.md](content-prompts.md). Suggested chat names: `repaso-ai`, `repaso-data`, `repaso-cloud`, `repaso-lang-web`, `repaso-cs-qa-mobile`, `repaso-embedded`, `repaso-team`.
 
 ## Later: a third level
 
