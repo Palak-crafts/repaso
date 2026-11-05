@@ -67,6 +67,26 @@ for (const [label, viewport, touch] of [["mobile", { width: 390, height: 844 }, 
     }
     ok(await p.locator("[data-act=again], [data-act=retry]").count(), "no end screen");
   });
+  await check(`${label}: categories filter the home topics and pick topics together in Practice`, async () => {
+    await p.goto(URL_);
+    await p.locator(".tcard").first().waitFor();
+    const all = await p.locator(".tcard").count();
+    await p.locator("[data-hg=data]").click();
+    const some = await p.locator(".tcard").count();
+    ok(some > 0 && some < all, `${some} of ${all} cards after filtering`);
+    await p.locator("[data-hg=all]").click();
+    ok((await p.locator(".tcard").count()) === all, "All brings every topic back");
+    await p.goto(URL_ + "#/practice");
+    await p.locator(".gchip").first().waitFor();
+    const g = p.locator(".gchip[data-grp=web]");
+    if ((await g.getAttribute("aria-pressed")) === "false") await g.click();
+    await g.click(); // all picked -> clears the group
+    ok((await g.getAttribute("aria-pressed")) === "false", "group chip clears");
+    await p.locator(".gchip[data-grp=web] + .chips [data-cat]").first().click();
+    ok((await g.getAttribute("aria-pressed")) === "mixed", "one topic makes the group mixed");
+    await g.click();
+    ok((await g.getAttribute("aria-pressed")) === "true", "group chip selects all of its topics");
+  });
   await check(`${label}: search finds a term and a question`, async () => {
     await p.goto(`${URL_}#/`);
     await p.locator("#q").fill("deadlock");

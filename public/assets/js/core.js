@@ -143,10 +143,10 @@ export function mergeProgress(a, b) {
 export function normalize(s) {
   return String(s).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/`/g, "");
 }
-export function searchDocs({ bank, glossary, topics, es }) {
+export function searchDocs({ bank, glossary, topics, groups = [], es }) {
   const docs = [];
   for (const t of topics)
-    docs.push({ kind: "topic", key: t.k, title: normalize(`${t.name} ${t.name_es}`), body: "" });
+    docs.push({ kind: "topic", key: t.k, title: normalize(`${t.name} ${t.name_es} ${groups.filter((g) => g.k === t.g).map((g) => `${g.name} ${g.name_es}`).join(" ")}`), body: "" });
   for (const [k, [name, def]] of Object.entries(glossary)) {
     const e = es?.gl?.[k];
     docs.push({ kind: "term", key: k, title: normalize(`${name} ${e?.[0] ?? ""}`), body: normalize(`${def} ${e?.[1] ?? ""}`) });

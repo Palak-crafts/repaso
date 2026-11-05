@@ -12,6 +12,7 @@ const exists = (f) => fs.existsSync(f);
 
 export function loadContent() {
   const topics = read("content/topics.json");
+  const groups = read("content/groups.json");
   const questions = [], esQ = {};
   for (const { k } of topics) {
     for (const q of read(`content/questions/${k}.json`)) questions.push({ ...q, cat: k });
@@ -24,18 +25,31 @@ export function loadContent() {
   const glossary = read("content/glossary.json");
   const esGl = exists("content/es/glossary.json") ? read("content/es/glossary.json") : {};
   const hashes = exists(HASH_FILE) ? read(HASH_FILE) : {};
-  return { topics, questions, glossary, esQ, esGl, hashes };
+  return { topics, groups, questions, glossary, esQ, esGl, hashes };
 }
 
 const ticks = (s) => (String(s).match(/`[^`]+`/g) || []).sort();
 const shape = (s) => String(s).split("\n").map((l) => (l.startsWith("- ") ? "-" : /^\d+\. /.test(l) ? "#" : l.trim() ? "p" : "")).join("");
 
-export function validate({ topics, questions, glossary, esQ, esGl, hashes = {} }) {
+export function validate({ topics, groups = [], questions, glossary, esQ, esGl, hashes = {} }) {
   const out = [], ids = new Set();
   const fail = (id, msg) => out.push(`${id}: ${msg}`);
   const known = new Set(topics.map((t) => t.k));
   const plain = /^[A-Za-z0-9_-]{1,32}$/;
   for (const t of topics) if (!plain.test(t.k)) fail(t.k, "topic key must be letters, digits, _ or -");
+  // Two levels: a group (category) holds topics (subcategories). Every topic sits in exactly one group, and no group is empty.
+  const gkeys = new Set();
+  for (const g of groups) {
+    if (!plain.test(g.k)) fail(g.k, "group key must be letters, digits, _ or -");
+    if (gkeys.has(g.k)) fail(g.k, "duplicate group");
+    gkeys.add(g.k);
+    if (!g.name || !g.name_es) fail(g.k, "group needs name and name_es");
+    if (!topics.some((t) => t.g === g.k)) fail(g.k, "group has no topics (add the group when its first topic arrives)");
+  }
+  for (const t of topics) {
+    if (!gkeys.has(t.g)) fail(t.k, `topic needs a known group in "g" (got ${t.g})`);
+    if (!t.name || !t.name_es) fail(t.k, "topic needs name and name_es");
+  }
   for (const k of Object.keys(glossary)) if (!plain.test(k)) fail(k, "glossary key must be letters, digits, _ or -");
   for (const q of questions) {
     if (!plain.test(q.id)) fail(q.id, "id must be letters, digits, _ or -");
