@@ -77,14 +77,11 @@ Your progress stays in your browser, and it works offline after the first visit.
 
 ```mermaid
 flowchart LR
+  M(["A miss,<br/>from any box"]) -.->|back to| B1
   B1["Box 1<br/>same day"] -->|right| B2["Box 2<br/>1 day"]
   B2 -->|right| B3["Box 3<br/>3 days"]
   B3 -->|right| B4["Box 4<br/>7 days"]
   B4 -->|right| B5["Box 5<br/>16 days"]
-  B2 -.->|miss| B1
-  B3 -.->|miss| B1
-  B4 -.->|miss| B1
-  B5 -.->|miss| B1
 ```
 
 A right answer moves a question up one box. A miss sends it back to box 1. The higher the box, the longer it waits before it shows up again.

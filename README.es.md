@@ -79,14 +79,11 @@ Las capturas están en inglés, la web también se ve en español con el botón 
 
 ```mermaid
 flowchart LR
+  M(["Un fallo,<br/>desde cualquier caja"]) -.->|vuelve a| B1
   B1["Caja 1<br/>el mismo día"] -->|acierto| B2["Caja 2<br/>1 día"]
   B2 -->|acierto| B3["Caja 3<br/>3 días"]
   B3 -->|acierto| B4["Caja 4<br/>7 días"]
   B4 -->|acierto| B5["Caja 5<br/>16 días"]
-  B2 -.->|fallo| B1
-  B3 -.->|fallo| B1
-  B4 -.->|fallo| B1
-  B5 -.->|fallo| B1
 ```
 
 Si aciertas, la pregunta sube una caja. Si fallas, vuelve a la caja 1. Cuanto más alta la caja, más tarda en volver a salir.
