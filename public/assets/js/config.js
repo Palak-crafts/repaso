@@ -10,6 +10,6 @@ export const CONFIG = {
     projectId: "repaso-35cd7",
     appId: "1:374376281521:web:ef315ef427afe3e188f990",
   },
-  providers: ["google"], // add "github" once the GitHub sign-in is set up in Firebase
+  providers: ["google", "github"],
   sdkVersion: "13.2.0",
 };
