@@ -2,7 +2,7 @@
 
 Ready to paste, one per new Claude Code chat opened in this repo. Each prompt is self-contained. The plan, the reasoning and the quality bar are in [content-plan.md](content-plan.md). Do them in this order, ideally one at a time, merging into `main` between chats so they do not clash on `content/topics.json` and `public/assets/js/icons.js`.
 
-Each chat writes its sources to `docs/sources/<topic>.md`. The [monthly agent](monthly-agent.md) uses them to re-check content that ages.
+Each chat writes its sources to `docs/sources/<topic>.md`. The [monthly report](monthly-agent.md) checks that these links still answer, and they are where to start when re-checking content that ages.
 
 Order and why: AI, Data and Cloud first (most asked), then Languages and Web, then CS, QA and Mobile, then Embedded (a niche where few free bilingual sites exist), then Team plus the final review.
 

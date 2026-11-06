@@ -1,0 +1,65 @@
+name: Monthly report
+
+# Once a month, run the checks and open one issue with the result. No AI, no extra secrets: it only
+# uses the repository token. A person reads the report and decides what to change.
+on:
+  schedule:
+    - cron: "0 7 1 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+      - id: test
+        continue-on-error: true
+        run: npm test
+      - id: i18n
+        continue-on-error: true
+        run: |
+          set +e
+          npm run i18n -- todo > "$RUNNER_TEMP/i18n.txt" 2>&1
+          code=$?
+          cat "$RUNNER_TEMP/i18n.txt"
+          exit $code
+      - name: Collect issues and pull requests
+        run: |
+          gh issue list --state open --limit 100 --json number,title,labels > "$RUNNER_TEMP/issues.json"
+          gh pr list --state open --limit 100 --json number,title,author > "$RUNNER_TEMP/prs.json"
+      - name: Build the report
+        env:
+          TEST_OUTCOME: ${{ steps.test.outcome }}
+          I18N_OUTCOME: ${{ steps.i18n.outcome }}
+          ISSUES_FILE: ${{ runner.temp }}/issues.json
+          PRS_FILE: ${{ runner.temp }}/prs.json
+        run: |
+          I18N_OUT="$(cat "$RUNNER_TEMP/i18n.txt")" node scripts/monthly-report.mjs > "$RUNNER_TEMP/report.md"
+          cat "$RUNNER_TEMP/report.md"
+      - name: Open or update this month's issue
+        run: |
+          month="$(date -u +%Y-%m)"
+          title="Monthly report ${month}"
+          gh label create monthly-report --color 5b45ee --description "Monthly maintenance report" 2>/dev/null || true
+          # Never list the report issues themselves in the report; find this month's by exact title.
+          existing="$(gh issue list --label monthly-report --state all --search "\"${title}\" in:title" --json number,title -q ".[] | select(.title == \"${title}\") | .number" | head -n 1)"
+          if [ -n "$existing" ]; then
+            gh issue edit "$existing" --body-file "$RUNNER_TEMP/report.md"
+          else
+            gh issue create --title "$title" --label monthly-report --body-file "$RUNNER_TEMP/report.md"
+          fi
