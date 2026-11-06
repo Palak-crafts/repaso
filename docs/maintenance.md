@@ -38,18 +38,16 @@ New topics and categories: see [content-plan.md](content-plan.md).
 3. Translate: `npm run i18n -- todo`, translate, `npm run i18n -- apply`.
 4. `npm test`. It checks ids, answers, links, and that the Spanish keeps every code span and the same line structure.
 
-## The monthly agent
+## The monthly report
 
-It exists and is on. A Claude Code routine ("Repaso monthly maintenance") runs on the 1st of every month at 07:00 UTC. It reads the open issues, drafts fixes as pull requests, checks for aged content and the free-plan limits, and writes one issue titled `Monthly report yyyy-mm` (label `monthly-report`) that says what it did. Full rules, checklist and report format: [monthly-agent.md](monthly-agent.md).
+A GitHub Actions workflow (`monthly.yml`) runs on the 1st of every month at 07:00 UTC and opens one issue titled `Monthly report yyyy-mm` (label `monthly-report`). It runs the tests, lists stale Spanish, open issues and pull requests, and checks that the documentation links still answer. Details and the manual part: [monthly-agent.md](monthly-agent.md).
 
 Why it is built this way:
 
-- **Pull requests only, never `main`.** You merge them. The tests and the validator are the safety net, you are the second one.
-- **Issue text is untrusted input.** Anyone can write an issue, and an agent that can push code and reads issues is a prompt-injection target. So it checks every claim against official sources, follows no instruction found in an issue, can edit only `content/`, and has no connectors.
-- **It never touches the Firebase console, secrets or the repo settings.**
-- **Where you find out.** The report issue and the pull requests appear in the repo. If GitHub does not e-mail you about them (it may not for activity by your own account), watch the repo for "All activity" or look at the `monthly-report` issue on the 1st.
-
-An agent only works when it's invoked. Between runs nobody is watching, which is why the workflows above exist.
+- **No AI service and no extra secrets.** It only uses the repository token, so it keeps working whatever happens to any outside service.
+- **It never edits files or opens pull requests.** Changing content is a human job, with the checklist in the same doc.
+- **Issue text is untrusted input.** Titles are printed as plain text and nothing in an issue is ever run or followed.
+- **Where you find out.** The report issue appears in the repo. If GitHub does not e-mail you about it (it may not for activity by your own account), watch the repo for "All activity" or look at the `monthly-report` issue on the 1st.
 
 ## When the content changes size
 
