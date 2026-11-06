@@ -5,7 +5,7 @@
 # Repaso
 
 **Practica para tu entrevista de software.**<br>
-777 preguntas en español y en inglés. Sin registro, sin anuncios, sin rastreadores.
+897 preguntas en español y en inglés. Sin registro, sin anuncios, sin rastreadores.
 
 [![Probarlo](https://img.shields.io/badge/probarlo-babylonace.github.io%2Frepaso-5b45ee?style=for-the-badge)](https://babylonace.github.io/repaso/)
 
@@ -22,7 +22,7 @@
 
 ## Qué es
 
-Práctica gratis para entrevistas de ingeniería de software, de nivel junior a intermedio: 777 preguntas y 745 términos de glosario en 14 temas. Entras y la primera pregunta ya está ahí.
+Práctica gratis para entrevistas de ingeniería de software, de nivel junior a intermedio: 897 preguntas y 852 términos de glosario en 17 temas. Entras y la primera pregunta ya está ahí.
 
 Tu progreso se queda en tu navegador y funciona sin conexión después de la primera visita. Si lo quieres en otro dispositivo puedes iniciar sesión con Google o GitHub, pero nada depende de eso.
 
@@ -53,7 +53,7 @@ Tu progreso se queda en tu navegador y funciona sin conexión después de la pri
   </tr>
 </table>
 
-<img src="docs/img/topics-dark.jpg" alt="Los 14 temas como tarjetas">
+<img src="docs/img/topics-dark.jpg" alt="Los 17 temas como tarjetas">
 
 <p align="center">
   <img src="docs/img/mobile-dark.jpg" width="230" alt="Portada en el móvil, tema oscuro">
@@ -74,6 +74,8 @@ Las capturas están en inglés, la web también se ve en español con el botón 
 | Backend y APIs | 52 | Testing | 48 |
 | Bases de datos y SQL | 59 | Preguntas de comportamiento | 40 |
 | Algoritmos y estructuras de datos | 56 | Diseño de sistemas | 46 |
+| Fundamentos de ML | 40 | LLMs, RAG y agentes | 40 |
+| MLOps y despliegue | 40 | | |
 
 ## Cómo funcionan las cajas
 
