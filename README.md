@@ -5,7 +5,7 @@
 # Repaso
 
 **Practice for your software interview.**<br>
-777 questions in English and Spanish. No signup, no ads, no trackers.
+897 questions in English and Spanish. No signup, no ads, no trackers.
 
 [![Try it](https://img.shields.io/badge/try%20it-babylonace.github.io%2Frepaso-5b45ee?style=for-the-badge)](https://babylonace.github.io/repaso/)
 
@@ -22,7 +22,7 @@
 
 ## What it is
 
-Free practice for software engineering interviews, junior to mid level: 777 questions and 745 glossary terms across 14 topics. You open it and the first question is already there.
+Free practice for software engineering interviews, junior to mid level: 897 questions and 852 glossary terms across 17 topics. You open it and the first question is already there.
 
 Your progress stays in your browser, and it works offline after the first visit. If you want it on another device you can sign in with Google or GitHub, but nothing depends on that.
 
@@ -53,7 +53,7 @@ Your progress stays in your browser, and it works offline after the first visit.
   </tr>
 </table>
 
-<img src="docs/img/topics-dark.jpg" alt="The 14 topics as cards">
+<img src="docs/img/topics-dark.jpg" alt="The 17 topics as cards">
 
 <p align="center">
   <img src="docs/img/mobile-dark.jpg" width="230" alt="Home page on a phone, dark theme">
@@ -72,6 +72,8 @@ Your progress stays in your browser, and it works offline after the first visit.
 | Backend & APIs | 52 | Testing | 48 |
 | Databases & SQL | 59 | Behavioral | 40 |
 | Algorithms & DS | 56 | System Design | 46 |
+| ML fundamentals | 40 | LLMs, RAG & agents | 40 |
+| MLOps & serving | 40 | | |
 
 ## How the review boxes work
 
