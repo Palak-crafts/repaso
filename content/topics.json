@@ -14,5 +14,6 @@
  {"k":"test","g":"qs","name":"Testing","name_es":"Testing","p":"TST"},
  {"k":"beh","g":"team","name":"Behavioral","name_es":"Preguntas de comportamiento","p":"BEH"},
  {"k":"ml","g":"ai","name":"ML fundamentals","name_es":"Fundamentos de ML","p":"ML"},
- {"k":"llm","g":"ai","name":"LLMs, RAG & agents","name_es":"LLMs, RAG y agentes","p":"LLM"}
+ {"k":"llm","g":"ai","name":"LLMs, RAG & agents","name_es":"LLMs, RAG y agentes","p":"LLM"},
+ {"k":"mlops","g":"ai","name":"MLOps & serving","name_es":"MLOps y despliegue","p":"MLO"}
 ]

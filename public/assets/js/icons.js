@@ -17,8 +17,9 @@ const P = {
   beh: '<path d="M4 5h16v11H9.500L4 20.500V5Z"/><path d="M8 9.500h8M8 12.500h5"/>',
   ml: '<path d="M4 4v16h16"/><circle cx="8.500" cy="14.500" r="1"/><circle cx="12" cy="10.500" r="1"/><circle cx="16.500" cy="7.500" r="1"/><circle cx="14" cy="15.500" r="1"/><path d="M6.500 16.500 19 6.500"/>',
   llm: '<path d="M4 5h16v10H12l-4 4v-4H4V5Z"/><path d="M8 9.500h8M8 12h5"/>',
+  mlops: '<path d="M20 12a8 8 0 0 1-14.200 5"/><path d="M4 12a8 8 0 0 1 14.200-5"/><path d="M18 3v4h-4M6 21v-4h4"/>',
 };
-const HUE = { py: 215, jv: 24, spr: 140, oop: 270, api: 330, db: 190, algo: 45, sys: 255, sec: 355, fe: 200, ops: 175, vcs: 15, test: 105, beh: 300, ml: 80, llm: 235 };
+const HUE = { py: 215, jv: 24, spr: 140, oop: 270, api: 330, db: 190, algo: 45, sys: 255, sec: 355, fe: 200, ops: 175, vcs: 15, test: 105, beh: 300, ml: 80, llm: 235, mlops: 315 };
 
 const FALLBACK = '<circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/>';
 export const topicIcon = (k) => `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[k] || FALLBACK}</svg>`;
