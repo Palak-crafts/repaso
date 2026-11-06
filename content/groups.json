@@ -2,6 +2,7 @@
  { "k": "lang", "name": "Programming languages", "name_es": "Lenguajes de programación" },
  { "k": "web", "name": "Backend & web", "name_es": "Backend y web" },
  { "k": "data", "name": "Data & databases", "name_es": "Datos y bases de datos" },
+  { "k": "ai", "name": "AI & machine learning", "name_es": "IA y aprendizaje automático" },
  { "k": "cloud", "name": "Cloud & DevOps", "name_es": "Cloud y DevOps" },
  { "k": "cs", "name": "Computer science & design", "name_es": "Informática y diseño" },
  { "k": "qs", "name": "Quality & security", "name_es": "Calidad y seguridad" },
