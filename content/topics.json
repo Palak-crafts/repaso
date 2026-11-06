@@ -12,5 +12,6 @@
  {"k":"ops","g":"cloud","name":"Cloud & DevOps","name_es":"Cloud y DevOps","p":"OPS"},
  {"k":"vcs","g":"team","name":"Maven, Git & SDLC","name_es":"Maven, Git y SDLC","p":"VCS"},
  {"k":"test","g":"qs","name":"Testing","name_es":"Testing","p":"TST"},
- {"k":"beh","g":"team","name":"Behavioral","name_es":"Preguntas de comportamiento","p":"BEH"}
+ {"k":"beh","g":"team","name":"Behavioral","name_es":"Preguntas de comportamiento","p":"BEH"},
+ {"k":"ml","g":"ai","name":"ML fundamentals","name_es":"Fundamentos de ML","p":"ML"}
 ]
