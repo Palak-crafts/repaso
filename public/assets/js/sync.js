@@ -23,10 +23,28 @@ export async function watchUser(cb) {
   await auth.authStateReady();
   A.onAuthStateChanged(auth, cb);
 }
+// A sign-in that hit an existing account with the same e-mail keeps its credential here until the person
+// signs in with the method they used before. Then the two are linked, so both buttons open the same account.
+let pendingLink = null;
 export async function signIn(providerId) {
   await load();
   const P = providerId === "github" ? A.GithubAuthProvider : A.GoogleAuthProvider;
-  await A.signInWithPopup(auth, new P());
+  try {
+    const res = await A.signInWithPopup(auth, new P());
+    if (pendingLink) {
+      const cred = pendingLink;
+      pendingLink = null;
+      try { await A.linkWithCredential(res.user, cred); } catch { /* different e-mail or already linked: keep the sign-in */ }
+    }
+  } catch (e) {
+    if (e?.code === "auth/account-exists-with-different-credential") {
+      pendingLink = P.credentialFromError(e);
+      const err = new Error("link needed");
+      err.code = "repaso/link-needed";
+      throw err;
+    }
+    throw e;
+  }
 }
 export async function signOutUser() { await load(); await A.signOut(auth); }
 
