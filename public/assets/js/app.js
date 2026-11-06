@@ -623,7 +623,7 @@ async function doSignIn(p) {
     await sync.signIn(p);
     note("");
   } catch (e) {
-    if (e?.code !== "auth/popup-closed-by-user" && e?.code !== "auth/cancelled-popup-request") note(t("acct.signfail"), true);
+    if (e?.code !== "auth/popup-closed-by-user" && e?.code !== "auth/cancelled-popup-request") { console.warn("Sign-in failed:", e?.code || e); note(t("acct.signfail"), true); }
   }
 }
 function exportProgress() {
