@@ -20,7 +20,7 @@ await new Promise((r) => setTimeout(r, 700));
 const results = [];
 async function check(name, fn) {
   try { await fn(); results.push(["ok", name]); console.log("  ok  ", name); }
-  catch (e) { results.push(["FAIL", name]); console.log(" FAIL ", name, "::", e.message.split("\n")[0]); }
+  catch (e) { results.push(["FAIL", name]); console.log(" FAIL ", name, "::", e.message.split("\n").slice(0, 12).join(" | ")); }
 }
 const ok = (v, msg) => { if (!v) throw new Error(msg || "assertion failed"); };
 
@@ -47,15 +47,57 @@ async function answer(p) {
   await p.locator(".opt").first().click();
   await p.locator("[data-act=next]").waitFor();
 }
-async function signIn(p, ctx) {
-  await p.goto(`${BASE}#/account`);
-  const [popup] = await Promise.all([ctx.waitForEvent("page"), p.locator("[data-signin=google]").click()]);
+async function popupLogin(p, ctx, provider, email) {
+  const [popup] = await Promise.all([ctx.waitForEvent("page"), p.locator(`[data-signin=${provider}]`).click()]);
   await popup.waitForLoadState();
   await popup.locator("#add-account-button").click();
-  await popup.locator("#email-input").fill(EMAIL);
+  await popup.locator("#email-input").fill(email);
   await popup.locator("#display-name-input").fill("Ana Test");
   await popup.locator("#sign-in").click();
+}
+async function signIn(p, ctx, provider = "google", email = EMAIL) {
+  await p.goto(`${BASE}#/account`);
+  await popupLogin(p, ctx, provider, email);
   await p.locator("[data-acct=out]").waitFor();
+}
+async function signOut(p) {
+  await p.goto(`${BASE}#/account`);
+  await p.locator("[data-acct=out]").click();
+  await p.locator("[data-signin=google]").waitFor();
+}
+// The emulator calls every fake e-mail verified and has no real GitHub token. Real GitHub logins are not
+// trusted that way, so these two edits to its sign-in page make it answer as Firebase does in production.
+async function githubLikeProduction(ctx) {
+  await ctx.route("**/emulator/auth/handler*", async (r) => {
+    const res = await r.fetch();
+    const isGithub = new URL(r.request().url()).searchParams.get("providerId") === "github.com";
+    const body = (await res.text())
+      .replace("email_verified: true,", isGithub ? "email_verified: false," : "email_verified: true,")
+      .replace("url += '&id_token=' + urlEncodedIdToken;", isGithub ? "url += '&id_token=' + urlEncodedIdToken + '&access_token=' + urlEncodedIdToken;" : "url += '&id_token=' + urlEncodedIdToken;");
+    await r.fulfill({ response: res, body });
+  });
+}
+const ownerOf = (p) => p.evaluate(() => JSON.parse(localStorage.getItem("repaso-progress-v1")).owner);
+async function providersOf(uid, wanted = 1) {
+  let list = [];
+  // The link finishes just after the page shows the person as signed in.
+  for (let i = 0; i < 40 && list.length < wanted; i++) {
+    const r = await fetch(`${AUTH}/identitytoolkit.googleapis.com/v1/projects/${PROJECT}/accounts:lookup`, {
+      method: "POST", headers: { ...owner, "Content-Type": "application/json" }, body: JSON.stringify({ localId: [uid] }),
+    });
+    list = ((await r.json()).users?.[0]?.providerUserInfo || []).map((x) => x.providerId).sort();
+    if (list.length < wanted) await new Promise((res) => setTimeout(res, 250));
+  }
+  return list;
+}
+async function cloudAnswers(uid, atLeast) {
+  let n = 0;
+  for (let i = 0; i < 40 && n < atLeast; i++) {
+    const r = await fetch(`${DOCS}/users/${uid}`, { headers: owner });
+    if (r.ok) n = total(JSON.parse((await r.json()).fields.data.stringValue));
+    if (n < atLeast) await new Promise((res) => setTimeout(res, 250));
+  }
+  return n;
 }
 async function cloudDoc(minAnswers = 1) {
   for (let i = 0; i < 40; i++) {
@@ -197,6 +239,69 @@ await check("delete account: the suggestions sent from the site are gone too", a
   const list = await (await fetch(`${DOCS}/suggestions`, { headers: owner })).json();
   ok(!(list.documents || []).some((d) => d.fields.uid.stringValue === firstUid), "suggestion left behind");
   ok((list.documents || []).some((d) => d.fields.uid.stringValue === stranger.uid), "someone else's suggestion was removed");
+});
+
+// A deleted account leaves old provider ids behind in the emulator, and its Google page then fails to open.
+await fetch(`${AUTH}/emulator/v1/projects/${PROJECT}/accounts`, { method: "DELETE", headers: owner });
+const EMAIL_NEW = `nueva${Date.now()}@example.com`,EMAIL_BOTH = `ambas${Date.now()}@example.com`, EMAIL_REVERSE = `reves${Date.now()}@example.com`;
+
+await check("GitHub with a new e-mail: a new account that keeps the local progress", async () => {
+  const c = await device();
+  await githubLikeProduction(c.ctx);
+  await answer(c.page);
+  const local = await itemCount(c.page);
+  await signIn(c.page, c.ctx, "github", EMAIL_NEW);
+  const uid = await ownerOf(c.page);
+  ok(uid, "no owner");
+  ok((await providersOf(uid)).join() === "github.com", `providers: ${await providersOf(uid)}`);
+  ok((await cloudAnswers(uid, local)) === local, "progress did not reach the cloud");
+});
+
+await check("GitHub on an e-mail that has Google: asks for Google, links both, nothing is lost", async () => {
+  const first = await device();
+  await githubLikeProduction(first.ctx);
+  await answer(first.page);
+  await signIn(first.page, first.ctx, "google", EMAIL_BOTH);
+  const uid = await ownerOf(first.page);
+  ok((await cloudAnswers(uid, 1)) === 1, "first answer not in the cloud");
+
+  const second = await device();
+  await githubLikeProduction(second.ctx);
+  await answer(second.page);
+  await second.page.goto(`${BASE}#/account`);
+  await popupLogin(second.page, second.ctx, "github", EMAIL_BOTH);
+  await second.page.getByText("already has an account").waitFor();
+  ok(await second.page.locator("[data-signin=github]").isVisible(), "should still be signed out");
+  ok((await itemCount(second.page)) === 1, "local progress changed");
+
+  await popupLogin(second.page, second.ctx, "google", EMAIL_BOTH);
+  await second.page.locator("[data-acct=out]").waitFor();
+  ok((await ownerOf(second.page)) === uid, "Google opened a different account");
+  const providers = await providersOf(uid, 2);
+  ok(providers.join() === "github.com,google.com", `providers: ${providers}`);
+  ok((await cloudAnswers(uid, 2)) === 2, "progress from the two devices was not joined");
+
+  await signOut(second.page);
+  await second.page.locator("[data-signin=github]").waitFor();
+  const [popup] = await Promise.all([second.ctx.waitForEvent("page"), second.page.locator("[data-signin=github]").click()]);
+  await popup.waitForLoadState();
+  await popup.locator(".js-reuse-account", { hasText: EMAIL_BOTH }).click();
+  await second.page.locator("[data-acct=out]").waitFor();
+  ok((await ownerOf(second.page)) === uid, "GitHub opened a different account");
+  ok((await itemCount(second.page)) === 2, `answers: ${await itemCount(second.page)}`);
+});
+
+await check("GitHub first, then Google with the same e-mail: same account, progress kept", async () => {
+  const d = await device();
+  await githubLikeProduction(d.ctx);
+  await answer(d.page);
+  await signIn(d.page, d.ctx, "github", EMAIL_REVERSE);
+  const uid = await ownerOf(d.page);
+  ok((await cloudAnswers(uid, 1)) === 1, "answer not in the cloud");
+  await signOut(d.page);
+  await signIn(d.page, d.ctx, "google", EMAIL_REVERSE);
+  ok((await ownerOf(d.page)) === uid, "Google opened a different account");
+  ok((await itemCount(d.page)) === 1, `answers: ${await itemCount(d.page)}`);
 });
 
 await browser.close();

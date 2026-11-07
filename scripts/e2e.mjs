@@ -297,8 +297,9 @@ await check("I don't know shows the answer and changes nothing", async () => {
   await p.locator("[data-grp=lang]").click();
   await p.locator("[data-go=mode]").click();
   await p.locator(".qtop").waitFor();
+  let cards = 0; // the session is shuffled, so flash cards may come before the first question with choices
   for (let i = 0; i < 12 && !(await p.locator("[data-act=dunno]").count()); i++) {
-    await p.locator("[data-act=reveal]").click(); await p.locator("[data-act=got]").click();
+    await p.locator("[data-act=reveal]").click(); await p.locator("[data-act=got]").click(); cards++;
   }
   const before = await p.evaluate(() => localStorage.getItem("repaso-progress-v1"));
   await p.locator("[data-act=dunno]").click();
@@ -310,7 +311,7 @@ await check("I don't know shows the answer and changes nothing", async () => {
   await p.locator("[data-act=end]").click();
   await p.getByText("The ones you didn't know").waitFor();
   ok(!(await p.getByText("Clean run").count()), "a session of I don't know is not a clean run");
-  ok(!(await p.locator(".ring").count()), "a score with nothing answered");
+  ok((await p.locator(".ring").count()) === (cards ? 1 : 0), cards ? "no score after answering cards" : "a score with nothing answered");
   await p.locator("[data-act=retry]").click();
   await p.locator(".qtop").waitFor();
   await ctx.close();
