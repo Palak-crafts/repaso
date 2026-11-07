@@ -44,7 +44,6 @@ const ui = {
   // Replaces the old "levels" setting on purpose: that one was saved as "auto" for everyone, chosen or not.
   order: saved.order === "basics" ? "basics" : "interview",
   cats: Array.isArray(saved.cats) ? new Set(saved.cats) : null,
-  stLv: saved.stLv === "all" || [0, 1, 2, 3].includes(saved.stLv) ? saved.stLv : 1,
 };
 const savePrefs = () => lsSet(KEYS.prefs, { ...ui, cats: [...(ui.cats || [])] });
 
@@ -55,8 +54,16 @@ const t = (key, vars) => {
 };
 const groupName = (k) => (ui.lang === "es" ? GROUP[k].name_es : GROUP[k].name);
 const inGroup = (g) => TOPICS.filter((c) => c.g === g);
-/** "true" when every topic of the group is picked, "mixed" when only some are. */
-const groupState = (g) => { const ks = inGroup(g).map((c) => c.k), n = ks.filter((k) => ui.cats.has(k)).length; return n && n === ks.length ? "true" : n ? "mixed" : "false"; };
+const allPicked = () => ui.cats.size === TOPICS.length;
+/** "true" when every topic of the group is picked, "mixed" when only some are. With everything on, only All lights up. */
+const groupState = (g) => { const ks = inGroup(g).map((c) => c.k), n = ks.filter((k) => ui.cats.has(k)).length; return allPicked() ? "false" : n && n === ks.length ? "true" : n ? "mixed" : "false"; };
+/** With everything on, a tap narrows to that choice. Clearing the last choice goes back to everything, so a session is never empty. */
+function pickTopics(keys) {
+  if (allPicked()) ui.cats = new Set(keys);
+  else { const on = keys.every((k) => ui.cats.has(k)); keys.forEach((k) => (on ? ui.cats.delete(k) : ui.cats.add(k))); }
+  if (!ui.cats.size) TOPICS.forEach((c) => ui.cats.add(c.k));
+  homeQ = null; savePrefs(); render();
+}
 const topicName = (k) => (ui.lang === "es" ? TOPIC[k].name_es : TOPIC[k].name);
 const lv = (n) => t(`lv.${n}`);
 
@@ -142,6 +149,8 @@ const unlocked = (q) => !basics() || q.l <= (P.levels[q.cat] ?? 0);
 const drawable = (q) => (basics() ? unlocked(q) : q.l > 0);
 const newRank = (q) => (basics() ? q.l : interviewTier(q));
 const it = (q) => P.items[q.id];
+const statusOf = (q) => { const x = it(q); return !x ? "new" : x.b >= 4 ? "mastered" : x.b === 1 ? "missed" : "learning"; };
+const countStatus = (list, s) => list.filter((q) => statusOf(q) === s).length;
 const inCats = (cats) => BANK.filter((q) => cats.has(q.cat));
 const due = (list) => { const now = Date.now(); return list.filter((q) => { const x = it(q); return x && x.d <= now; }); };
 const unseen = (list) => list.filter((q) => !it(q));
@@ -188,7 +197,7 @@ function explanationHTML(q) {
 }
 function metaHTML(q) {
   const x = it(q);
-  return `<div class="qmeta"><a href="#/study/${q.cat}">${esc(topicName(q.cat))}</a><span>${lv(q.l)}</span>${q.t === "f" ? `<span>${t("q.flash")}</span>` : ""}<span>${x ? t("q.box", { n: x.b }) : t("q.new")}</span></div>`;
+  return `<div class="qmeta"><a href="#/topics/${q.cat}">${esc(topicName(q.cat))}</a><span>${lv(q.l)}</span>${q.t === "f" ? `<span>${t("q.flash")}</span>` : ""}<span>${x ? t("q.box", { n: x.b }) : t("q.new")}</span></div>`;
 }
 function optionsHTML(q, order, state) {
   const x = qx(q);
@@ -224,7 +233,7 @@ const marqueeHTML = () => `<div class="marquee rv" aria-hidden="true">${MARQUEE.
 
 function resultsHTML(hits) {
   return `<ul class="results">${hits.map((h) => {
-    if (h.kind === "topic") return `<li><a href="#/study/${h.key}"><b>${esc(topicName(h.key))}</b><small>${t("search.topic")}</small></a></li>`;
+    if (h.kind === "topic") return `<li><a href="#/topics/${h.key}"><b>${esc(topicName(h.key))}</b><small>${t("search.topic")}</small></a></li>`;
     if (h.kind === "term") { const g = gx(h.key); return `<li><a href="#/term/${h.key}"><b>${esc(g.name)}</b><small>${t("search.term")}: ${inline(g.def.slice(0, 110))}${g.def.length > 110 ? "..." : ""}</small></a></li>`; }
     const q = BYID[h.key];
     return `<li><a href="#/q/${h.key}"><b>${stem(q)}</b><small>${t("search.q")}, ${esc(topicName(q.cat))}, ${lv(q.l)}</small></a></li>`;
@@ -245,7 +254,7 @@ function loadEs() {
 /* ---------- views ---------- */
 let homeQ = null, homeGroup = "all";
 function pickHome() {
-  const pool = BANK.filter((q) => q.t === "m" && !q.c && unlocked(q));
+  const pool = inCats(ui.cats).filter((q) => q.t === "m" && !q.c && unlocked(q));
   const d = due(pool), n = unseen(pool);
   const list = d.length ? d : n.length ? n.filter((q) => newRank(q) === Math.min(...n.map(newRank))) : pool;
   const q = list[Math.floor(Math.random() * list.length)] || BANK[0];
@@ -286,7 +295,7 @@ function viewHome() {
     ${GROUPS.length > 1 ? `<div class="chips gfilter" role="group" aria-label="${t("home.groups")}"><button type="button" class="chip" data-hg="all" aria-pressed="${homeGroup === "all"}">${t("home.allgroups")} <small>${TOPICS.length}</small></button>${GROUPS.map((g) => `<button type="button" class="chip" data-hg="${g.k}" aria-pressed="${homeGroup === g.k}">${esc(groupName(g.k))} <small>${inGroup(g.k).length}</small></button>`).join("")}</div>` : ""}
     ${(() => { let i = 0; return GROUPS.filter((g) => homeGroup === "all" || g.k === homeGroup).map((g) => `<div class="grp"><h3 class="grp-h">${esc(groupName(g.k))}</h3><div class="topics">${inGroup(g.k).map((c) => {
       const qs = BANK.filter((q) => q.cat === c.k), seen = qs.filter((q) => it(q)?.b >= 4).length;
-      return `<a class="tcard spot rv" style="--h:${topicHue(c.k)};--i:${i++ % 3}" href="#/study/${c.k}"><span class="ti">${topicIcon(c.k)}</span><b>${esc(topicName(c.k))}</b><small>${seen ? `${seen} / ` : ""}${t("home.nq", { n: qs.length })}</small>${seen ? `<span class="bar" aria-hidden="true"><i style="width:${pct(seen, qs.length)}%"></i></span>` : ""}</a>`;
+      return `<a class="tcard spot rv" style="--h:${topicHue(c.k)};--i:${i++ % 3}" href="#/topics/${c.k}"><span class="ti">${topicIcon(c.k)}</span><b>${esc(topicName(c.k))}</b><small>${seen ? `${seen} / ` : ""}${t("home.nq", { n: qs.length })}</small>${seen ? `<span class="bar" aria-hidden="true"><i style="width:${pct(seen, qs.length)}%"></i></span>` : ""}</a>`;
     }).join("")}</div></div>`).join(""); })()}
     <p><a href="#/terms">${t("home.glossary", { n: nTerms })}</a></p>
   </section>
@@ -312,31 +321,36 @@ function paintSearch(query, limit, compact) {
     : `<p class="muted small" role="status">${t("search.results", { n: all.length })}</p>${resultsHTML(hits)}${all.length > limit ? `<p><a href="#/search/${encodeURIComponent(q)}">${t("search.all", { n: all.length })}</a></p>` : ""}`;
 }
 
+const panels = new Set();
+const panelOpen = (name) => (panels.has(name) ? " open" : "");
 function viewPractice() {
   document.title = t("title.practice");
-  const avail = modeAvailable(ui.mode), empty = ui.mode === "weak" ? "setup.empty.weak" : ui.cats.size ? "setup.empty.smart" : "setup.empty.topics";
+  const avail = modeAvailable(ui.mode), empty = ui.mode === "weak" ? "setup.empty.weak" : "setup.empty.smart";
+  const pool = inCats(ui.cats).filter(unlocked), dueN = Math.min(due(pool).length, ui.size), newN = Math.min(unseen(pool).length, ui.size - dueN);
+  const weak = TOPICS.map((c) => [c.k, countStatus(BANK.filter((q) => q.cat === c.k), "missed")]).filter(([, n]) => n).sort((a, b) => b[1] - a[1]).slice(0, 3);
   main.innerHTML = `<div class="stack">
   <h1>${t("title.practice")}</h1>
-  ${P.stats.answered ? `<section class="section" style="margin-top:0">${boxesHTML()}
-    <div class="stats"><span>${t("stat.accuracy")}: <b>${pct(P.stats.correct, P.stats.answered)}%</b></span><span>${t("stat.answered")}: <b>${P.stats.answered}</b></span><span>${t("stat.streak")}: <b>${P.stats.best}</b></span></div></section>` : ""}
-  <section class="section"><h2>${t("setup.mode")}</h2>
-    <div class="chips">${MODES.map((m) => `<button type="button" class="chip" data-mode="${m}" aria-pressed="${ui.mode === m}">${t(`mode.${m}`)}</button>`).join("")}</div>
-    <p class="muted">${t(`mode.${ui.mode}.d`)}</p></section>
-  <section class="section"><div class="row between"><h2>${t("setup.topics")}</h2><button type="button" class="linkbtn" data-allcats>${ui.cats.size === TOPICS.length ? t("setup.none") : t("setup.all")}</button></div>
-    <p class="muted small">${t("setup.tree")}</p>
-    ${GROUPS.map((g) => `<div class="grp"><button type="button" class="chip gchip" data-grp="${g.k}" aria-pressed="${groupState(g.k)}">${esc(groupName(g.k))} <small>${inGroup(g.k).filter((c) => ui.cats.has(c.k)).length}/${inGroup(g.k).length}</small></button><div class="chips">${inGroup(g.k).map((c) => `<button type="button" class="chip" data-cat="${c.k}" aria-pressed="${ui.cats.has(c.k)}">${esc(topicName(c.k))}</button>`).join("")}</div></div>`).join("")}</section>
-  <section class="section"><h2>${t("setup.level")}</h2>
-    <div class="chips">${["interview", "basics"].map((o) => `<button type="button" class="chip" data-order="${o}" aria-pressed="${ui.order === o}">${t(`setup.${o}`)}</button>`).join("")}</div>
-    <p class="muted small">${t(`setup.${ui.order}.hint`)}</p></section>
-  <section class="section"><h2>${t("setup.size")}</h2>
-    <div class="chips">${SIZES.map((s) => `<button type="button" class="chip" data-size="${s}" aria-pressed="${ui.size === s}">${s}</button>`).join("")}</div></section>
-  ${ui.mode === "exam" ? `<section class="section"><h2>${t("setup.time")}</h2><div class="chips">${TIMERS.map((s) => `<button type="button" class="chip" data-timer="${s}" aria-pressed="${ui.timer === s}">${s}</button>`).join("")}</div></section>` : ""}
+  <p class="muted">${ui.mode === "smart" ? t("setup.today", { d: dueN, n: newN }) : t(`mode.${ui.mode}.d`)}</p>
+  <div class="chips" role="group" aria-label="${t("setup.topics")}">
+    <button type="button" class="chip gchip" data-allcats aria-pressed="${allPicked()}">${t("setup.all")}</button>
+    ${GROUPS.map((g) => `<button type="button" class="chip gchip" data-grp="${g.k}" aria-pressed="${groupState(g.k)}">${esc(groupName(g.k))}</button>`).join("")}
+  </div>
+  <details class="more" data-panel="topics"${panelOpen("topics")}><summary>${t("setup.one")}</summary>
+    <div class="chips">${TOPICS.map((c) => `<button type="button" class="chip" data-cat="${c.k}" aria-pressed="${!allPicked() && ui.cats.has(c.k)}">${esc(topicName(c.k))}</button>`).join("")}</div>
+  </details>
   <button type="button" class="btn pri block" data-go="mode"${avail ? "" : " disabled"}>${avail ? t("setup.go", { n: Math.min(avail, ui.size) }) : t(empty)}</button>
-  <section class="section"><h2>${t("setup.progress")}</h2>
-    <div>${GROUPS.map((g) => `<h3 class="grp-h">${esc(groupName(g.k))}</h3>${inGroup(g.k).map((c) => {
-      const qs = BANK.filter((q) => q.cat === c.k), m = qs.filter((q) => it(q)?.b >= 4).length, l = P.levels[c.k] ?? 0, s = l < 3 ? levelStats(P, BANK, c.k, l) : null;
-      return `<a class="topic-row" href="#/study/${c.k}"><b>${esc(topicName(c.k))}</b>${basics() ? `<small>${lv(l)}</small><small>${s ? t("setup.goal", { ok: s.ok, need: s.need, level: lv(l + 1) }) : t("setup.top")}</small>` : ""}<small>${t("setup.mastered", { m, t: qs.length })}</small></a>`;
-    }).join("")}`).join("")}</div></section></div>`;
+  ${weak.length ? `<section class="section"><h2>${t("setup.weak")}</h2><div>${weak.map(([k, n]) => `<a class="topic-row" href="#/topics/${k}/missed"><b>${esc(topicName(k))}</b><small>${t("setup.missed", { n })}</small></a>`).join("")}</div></section>` : ""}
+  <details class="more" data-panel="options"${panelOpen("options")}><summary>${t("setup.options")}</summary>
+    <h2>${t("setup.mode")}</h2>
+    <div class="chips">${MODES.map((m) => `<button type="button" class="chip" data-mode="${m}" aria-pressed="${ui.mode === m}">${t(`mode.${m}`)}</button>`).join("")}</div>
+    <p class="muted small">${t(`mode.${ui.mode}.d`)}</p>
+    <h2>${t("setup.level")}</h2>
+    <div class="chips">${["interview", "basics"].map((o) => `<button type="button" class="chip" data-order="${o}" aria-pressed="${ui.order === o}">${t(`setup.${o}`)}</button>`).join("")}</div>
+    <p class="muted small">${t(`setup.${ui.order}.hint`)}</p>
+    <h2>${t("setup.size")}</h2>
+    <div class="chips">${SIZES.map((s) => `<button type="button" class="chip" data-size="${s}" aria-pressed="${ui.size === s}">${s}</button>`).join("")}</div>
+    ${ui.mode === "exam" ? `<h2>${t("setup.time")}</h2><div class="chips">${TIMERS.map((s) => `<button type="button" class="chip" data-timer="${s}" aria-pressed="${ui.timer === s}">${s}</button>`).join("")}</div>` : ""}
+  </details></div>`;
 }
 
 /* session */
@@ -345,7 +359,7 @@ function startSession(list, opts = {}) {
   if (!list.length) { toast(t("setup.empty.smart")); return; }
   stopTimer();
   refreshLevels(P, BANK, TOPICS);
-  S = { list, idx: 0, right: 0, missed: [], exam: !!opts.exam, timeouts: 0, tick: null, ups: [], done: false };
+  S = { list, idx: 0, right: 0, missed: [], unknown: [], exam: !!opts.exam, timeouts: 0, tick: null, ups: [], done: false };
   enterQuestion(opts.order);
   if (location.hash !== "#/quiz") location.hash = "#/quiz"; else render();
 }
@@ -386,8 +400,8 @@ function viewQuiz() {
   let after = "";
   if (S.state) {
     const letter = S.order.indexOf(q.a) + 1;
-    const label = S.state.timedOut ? t("q.timeup", { k: letter }) : S.state.ok ? t("q.correct") : t("q.wrong", { k: letter });
-    after = `<p class="fb ${S.state.ok ? "ok" : "bad"}" role="status">${label}</p>${explanationHTML(q)}<a class="small" href="#/suggest?ref=${q.id}">${t("q.fix")}</a>`;
+    const label = S.state.dunno ? t("q.dunno.a", { k: letter }) : S.state.timedOut ? t("q.timeup", { k: letter }) : S.state.ok ? t("q.correct") : t("q.wrong", { k: letter });
+    after = `<p class="fb ${S.state.dunno ? "dunno" : S.state.ok ? "ok" : "bad"}" role="status">${label}</p>${explanationHTML(q)}<a class="small" href="#/suggest?ref=${q.id}">${t("q.fix")}</a>`;
   } else if (S.revealed) after = `${explanationHTML(q)}<a class="small" href="#/suggest?ref=${q.id}">${t("q.fix")}</a>`;
   main.innerHTML = `<div class="stack">
   <div class="qtop"><div class="grow"><span>${t("q.of", { i: S.idx + 1, n })}</span><div class="progress-line"><i style="width:${(100 * (S.idx + (S.state ? 1 : 0))) / n}%"></i></div></div>
@@ -398,6 +412,7 @@ function viewQuiz() {
     <p class="qtext">${inline(x.q)}</p>
     ${q.c ? code(q.c) : ""}
     ${q.t === "m" ? optionsHTML(q, S.order, S.state) : ""}
+    ${q.t === "m" && !S.state && !S.exam ? `<button type="button" class="btn dunno" data-act="dunno">${t("q.dunno")}</button>` : ""}
     ${after}
   </article></div>`;
   if (S.state) { setBar([[last ? t("q.results") : t("q.next"), "pri", "next"]]); if (S.exam) { $("timer").hidden = true; } }
@@ -457,38 +472,48 @@ function viewDone() {
   <section class="section"><h2>${t("home.boxes")}</h2>${boxesHTML()}</section>
   <section class="section"><h2>${t("done.missed")}</h2>
   ${S.missed.length ? `<ul class="results">${S.missed.map((q) => `<li><a href="#/q/${q.id}"><b>${stem(q)}</b></a></li>`).join("")}</ul>` : `<p class="muted">${t("done.clean")}</p>`}</section>
+  ${S.unknown.length ? `<section class="section"><h2>${t("done.unknown")}</h2><ul class="results">${S.unknown.map((q) => `<li><a href="#/q/${q.id}"><b>${stem(q)}</b></a></li>`).join("")}</ul></section>` : ""}
   ${CONFIG.firebase && !acct.user ? `<p><a href="#/account">${t("done.save")}</a></p>` : ""}
   </div>`;
-  const b = [[t("done.home"), "", "home"]];
-  if (S.missed.length) b.push([t("done.retry", { n: S.missed.length }), "pri", "retry"]);
+  const b = [[t("done.home"), "", "home"]], again = S.missed.length + S.unknown.length;
+  if (again) b.push([t("done.retry", { n: again }), "pri", "retry"]);
   else b.push([t("done.again"), "pri", "again"]);
   setBar(b);
 }
 
-/* study */
+/* topics */
+const FILTERS = ["all", "missed", "new", "mastered"];
 const studyOpen = new Set();
-function studyBody(q) {
-  const read = !!P.studied[q.id];
-  return `${q.c ? code(q.c) : ""}${explanationHTML(q)}
-  <div class="row"><button type="button" class="btn${read ? " good" : ""}" data-read="${q.id}" aria-pressed="${read}">${read ? t("study.isread") : t("study.read")}</button>
-  <a class="small" href="#/suggest?ref=${q.id}">${t("q.fix")}</a></div>`;
+const topicList = (k, f) => BANK.filter((q) => q.cat === k && (f === "all" || statusOf(q) === f)).sort((a, b) => newRank(a) - newRank(b));
+const studyBody = (q) => `${q.c ? code(q.c) : ""}${explanationHTML(q)}<p><a class="small" href="#/suggest?ref=${q.id}">${t("q.fix")}</a></p>`;
+function topicSummary(qs) {
+  const missed = countStatus(qs, "missed");
+  return t("setup.mastered", { m: countStatus(qs, "mastered"), t: qs.length }) + (missed ? ` · ${t("setup.missed", { n: missed })}` : "");
 }
-function viewStudy(cat, lvArg) {
-  document.title = t("title.study");
-  const k = TOPIC[cat] ? cat : TOPICS[0].k;
-  if (lvArg === "all") ui.stLv = "all"; else if (["0", "1", "2", "3"].includes(lvArg)) ui.stLv = +lvArg;
-  const byLv = (l) => BANK.filter((q) => q.cat === k && (l === "all" || q.l === l));
-  const list = byLv(ui.stLv).sort((a, b) => a.l - b.l), read = list.filter((q) => P.studied[q.id]).length;
-  const allOpen = list.length && list.every((q) => studyOpen.has(q.id));
+function viewTopics() {
+  document.title = t("title.topics");
   main.innerHTML = `<div class="stack">
-  <p class="crumb"><a href="#/">${esc(groupName(TOPIC[k].g))}</a></p>
-  <h1>${esc(topicName(k))}</h1>
-  <p class="muted">${t("study.lead")}</p>
-  <button type="button" class="btn pri" data-go="topic" data-cat-go="${k}">${t("study.practice")}</button>
-  <section class="section"><h2>${t("study.level")}</h2><div class="chips">${[0, 1, 2, 3, "all"].map((l) => `<a class="chip" href="#/study/${k}/${l}"${ui.stLv === l ? ' aria-current="true"' : ""} style="text-decoration:none">${l === "all" ? t("study.allv") : lv(l)} <small>${byLv(l).length}</small></a>`).join("")}</div></section>
-  <section class="section"><h2>${t("study.topic")}</h2>${GROUPS.map((g) => `<div class="grp"><h3 class="grp-h">${esc(groupName(g.k))}</h3><div class="chips">${inGroup(g.k).map((c) => `<a class="chip" href="#/study/${c.k}/${ui.stLv}"${c.k === k ? ' aria-current="true"' : ""} style="text-decoration:none">${esc(topicName(c.k))}</a>`).join("")}</div></div>`).join("")}</section>
-  <section class="section"><div class="row between"><p class="muted small">${t("study.count", { n: list.length, d: read })}</p>${list.length ? `<button type="button" class="linkbtn" data-expand>${allOpen ? t("study.collapse") : t("study.expand")}</button>` : ""}</div>
-  ${list.length ? `<div id="st-list">${list.map((q) => `<details class="sitem" data-id="${q.id}"${studyOpen.has(q.id) ? " open" : ""}><summary><span>${stem(q)}</span><span class="chk">${P.studied[q.id] ? "✓" : ""}</span></summary><div class="sbody">${studyOpen.has(q.id) ? studyBody(q) : ""}</div></details>`).join("")}</div>` : `<p class="muted">${t("study.none")}</p>`}</section></div>`;
+  <h1>${t("title.topics")}</h1>
+  ${P.stats.answered ? `<section class="section" style="margin-top:0">${boxesHTML()}
+    <div class="stats"><span>${t("stat.accuracy")}: <b>${pct(P.stats.correct, P.stats.answered)}%</b></span><span>${t("stat.answered")}: <b>${P.stats.answered}</b></span><span>${t("stat.streak")}: <b>${P.stats.best}</b></span></div></section>` : ""}
+  <div>${GROUPS.map((g) => `<h2 class="grp-h">${esc(groupName(g.k))}</h2>${inGroup(g.k).map((c) => {
+    const l = P.levels[c.k] ?? 0, s = l < 3 ? levelStats(P, BANK, c.k, l) : null;
+    return `<a class="topic-row" href="#/topics/${c.k}"><b>${esc(topicName(c.k))}</b>${basics() ? `<small>${lv(l)}</small><small>${s ? t("setup.goal", { ok: s.ok, need: s.need, level: lv(l + 1) }) : t("setup.top")}</small>` : ""}<small>${topicSummary(BANK.filter((q) => q.cat === c.k))}</small></a>`;
+  }).join("")}`).join("")}</div>
+  <p><a href="#/terms">${t("home.glossary", { n: Object.keys(GL).length })}</a></p></div>`;
+}
+function viewTopic(cat, arg) {
+  if (!TOPIC[cat]) return viewTopics();
+  document.title = `${topicName(cat)}: Repaso`;
+  const f = FILTERS.includes(arg) ? arg : "all", list = topicList(cat, f), allOpen = list.length && list.every((q) => studyOpen.has(q.id));
+  main.innerHTML = `<div class="stack">
+  <p class="crumb"><a href="#/topics">${t("title.topics")}</a></p>
+  <h1>${esc(topicName(cat))}</h1>
+  <p class="muted">${topicSummary(topicList(cat, "all"))}</p>
+  <button type="button" class="btn pri" data-go="topic" data-cat-go="${cat}">${t("study.practice")}</button>
+  <div class="chips">${FILTERS.map((x) => `<a class="chip" href="#/topics/${cat}/${x}"${f === x ? ' aria-current="true"' : ""} style="text-decoration:none">${t(`st.${x}.pl`)} <small>${topicList(cat, x).length}</small></a>`).join("")}</div>
+  <section class="section" style="margin-top:0"><div class="row between"><p class="muted small">${t("study.lead")}</p>${list.length ? `<button type="button" class="linkbtn" data-expand>${allOpen ? t("study.collapse") : t("study.expand")}</button>` : ""}</div>
+  ${list.length ? `<div id="st-list">${list.map((q) => { const s = statusOf(q); return `<details class="sitem" data-id="${q.id}"${studyOpen.has(q.id) ? " open" : ""}><summary><span>${stem(q)}</span><span class="st st-${s}">${t(`st.${s}`)}</span></summary><div class="sbody">${studyOpen.has(q.id) ? studyBody(q) : ""}</div></details>`; }).join("")}</div>` : `<p class="muted">${t("study.none")}</p>`}</section></div>`;
 }
 function viewQuestion(id) {
   const q = BYID[id];
@@ -554,11 +579,12 @@ function viewSuggest(params) {
 }
 
 /* ---------- router ---------- */
-const ROUTES = new Set(["home", "practice", "quiz", "study", "q", "term", "terms", "search", "about", "privacy", "account", "suggest"]);
+const ROUTES = new Set(["home", "practice", "quiz", "topics", "q", "term", "terms", "search", "about", "privacy", "account", "suggest"]);
 function route() {
   const raw = location.hash.replace(/^#\/?/, "");
   const [path, qs] = raw.split("?");
   const parts = path.split("/").map((x) => { try { return decodeURIComponent(x); } catch { return x; } });
+  if (parts[0] === "study") parts[0] = "topics"; // links saved before Study became Topics
   return { name: ROUTES.has(parts[0]) ? parts[0] : "home", a: parts[1], b: parts[2], params: new URLSearchParams(qs || "") };
 }
 let lastHash = null;
@@ -575,7 +601,7 @@ function render() {
   document.documentElement.lang = ui.lang;
   if (r.name !== "quiz") { stopTimer(); setBar(null); document.body.classList.remove("in-quiz"); }
   const views = {
-    home: viewHome, practice: viewPractice, quiz: viewQuiz, study: () => viewStudy(r.a, r.b), q: () => viewQuestion(r.a),
+    home: viewHome, practice: viewPractice, quiz: viewQuiz, topics: () => (r.a ? viewTopic(r.a, r.b) : viewTopics()), q: () => viewQuestion(r.a),
     term: () => viewTerm(r.a), terms: viewTerms, search: () => viewSearch(r.a || ""), about: () => viewPage("about"),
     privacy: () => viewPage("privacy"), account: viewAccount, suggest: () => viewSuggest(r.params),
   };
@@ -653,7 +679,7 @@ document.addEventListener("click", async (e) => {
     const k = +d.k;
     if (route().name === "home" || !route().name) {
       const first = homeQ; homeQ = null;
-      const rest = smartList(new Set(TOPICS.map((c) => c.k)), ui.size).filter((q) => q.id !== first.q.id).slice(0, ui.size - 1);
+      const rest = smartList(ui.cats, ui.size).filter((q) => q.id !== first.q.id).slice(0, ui.size - 1);
       startSession([first.q, ...rest], { order: first.order });
       answer(k);
     } else answer(k);
@@ -667,34 +693,34 @@ document.addEventListener("click", async (e) => {
     else if (d.act === "got" || d.act === "miss") { grade(q, d.act === "got"); next(); }
     else if (d.act === "end") finish();
     else if (d.act === "home") { S = null; homeQ = null; location.hash = "#/"; }
-    else if (d.act === "retry") startSession(shuffle(S.missed), { exam: S.exam });
-    else if (d.act === "again") { const list = smartList(new Set(TOPICS.map((c) => c.k)), ui.size); if (!list.length) return toast(t("setup.empty.smart")); S = null; startSession(list); }
+    else if (d.act === "retry") startSession(shuffle([...S.missed, ...S.unknown]), { exam: S.exam });
+    else if (d.act === "dunno") { // shows the answer and changes nothing: not a miss, no box, no stats
+      if (S.state) return;
+      S.state = { picked: -1, ok: false, dunno: true };
+      S.unknown.push(q);
+      viewQuiz();
+      document.querySelector('#bar-in [data-act="next"]')?.focus({ preventScroll: true });
+    }
+    else if (d.act === "again") { const list = smartList(ui.cats, ui.size); if (!list.length) return toast(t("setup.empty.smart")); S = null; startSession(list); }
     return;
   }
   if (d.go) {
-    if (d.go === "quick") startSession(smartList(new Set(TOPICS.map((c) => c.k)), ui.size));
+    if (d.go === "quick") startSession(smartList(ui.cats, ui.size));
     else if (d.go === "mode") startSession(modeList(ui.mode), { exam: ui.mode === "exam" });
     else if (d.go === "topic") startSession(smartList(new Set([d.catGo]), ui.size));
     else if (d.go === "one") startSession([BYID[d.id]]);
     return;
   }
   if (d.mode) { ui.mode = d.mode; savePrefs(); render(); }
-  else if (d.cat) { if (ui.cats.has(d.cat)) ui.cats.delete(d.cat); else ui.cats.add(d.cat); savePrefs(); render(); }
-  else if (d.grp) { const ks = inGroup(d.grp).map((c) => c.k), all = ks.every((k) => ui.cats.has(k)); ks.forEach((k) => (all ? ui.cats.delete(k) : ui.cats.add(k))); savePrefs(); render(); }
+  else if (d.cat) pickTopics([d.cat]);
+  else if (d.grp) pickTopics(inGroup(d.grp).map((c) => c.k));
   else if (d.hg) { homeGroup = d.hg; render(); }
-  else if ("allcats" in d) { if (ui.cats.size === TOPICS.length) ui.cats.clear(); else TOPICS.forEach((c) => ui.cats.add(c.k)); savePrefs(); render(); }
+  else if ("allcats" in d) { TOPICS.forEach((c) => ui.cats.add(c.k)); homeQ = null; savePrefs(); render(); }
   else if (d.order) { ui.order = d.order; homeQ = null; savePrefs(); render(); }
   else if (d.size) { ui.size = +d.size; savePrefs(); render(); }
   else if (d.timer) { ui.timer = +d.timer; savePrefs(); render(); }
-  else if (d.read) {
-    if (P.studied[d.read]) delete P.studied[d.read]; else P.studied[d.read] = 1;
-    save();
-    const box = el.closest(".sbody");
-    if (box) { box.innerHTML = studyBody(BYID[d.read]); box.closest(".sitem")?.querySelector(".chk")?.replaceChildren(P.studied[d.read] ? "✓" : ""); }
-    else render();
-  } else if ("expand" in d) {
-    const r = route(), k = TOPIC[r.a] ? r.a : TOPICS[0].k;
-    const list = BANK.filter((q) => q.cat === k && (ui.stLv === "all" || q.l === ui.stLv));
+  else if ("expand" in d) {
+    const r = route(), list = topicList(r.a, FILTERS.includes(r.b) ? r.b : "all");
     const all = list.every((q) => studyOpen.has(q.id));
     list.forEach((q) => (all ? studyOpen.delete(q.id) : studyOpen.add(q.id)));
     render();
@@ -716,6 +742,7 @@ document.addEventListener("click", async (e) => {
 });
 document.addEventListener("toggle", (e) => {
   const item = e.target;
+  if (item.dataset?.panel) { if (item.open) panels.add(item.dataset.panel); else panels.delete(item.dataset.panel); return; }
   if (!item.classList?.contains("sitem")) return;
   const id = item.dataset.id;
   if (item.open) { studyOpen.add(id); const b = item.querySelector(".sbody"); if (!b.innerHTML) b.innerHTML = studyBody(BYID[id]); }

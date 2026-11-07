@@ -128,6 +128,7 @@ pre.code code { background: none; padding: 0; font-size: inherit; overflow-wrap:
 .fb { font-weight: 700; display: inline-flex; align-items: center; gap: 8px; align-self: flex-start; padding: 5px 14px 5px 10px; border-radius: 999px; }
 .fb::before { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; font-size: .75rem; color: var(--desk); }
 .fb.ok { color: var(--green); background: var(--green-soft); } .fb.ok::before { content: "✓" / ""; background: var(--green); }
+.fb.dunno { color: var(--blue); background: var(--blue-soft); padding-left: 14px; }
 .fb.bad { color: var(--red); background: var(--red-soft); } .fb.bad::before { content: "✕" / ""; background: var(--red); }
 .answer { display: flex; flex-direction: column; gap: 8px; min-width: 0; overflow-wrap: anywhere; }
 .answer h3 { color: var(--ink-2); font-size: .8rem; text-transform: uppercase; letter-spacing: .08em; }
@@ -314,7 +315,13 @@ pre.code code { background: none; padding: 0; font-size: inherit; overflow-wrap:
 .sitem > summary { cursor: pointer; list-style: none; display: grid; grid-template-columns: 1fr auto; gap: 10px; padding: 15px 0; font-weight: 700; overflow-wrap: anywhere; }
 .sitem > summary::-webkit-details-marker { display: none; }
 .sitem > summary:hover { color: var(--blue); }
-.sitem .chk { color: var(--green); font-weight: 800; }
+.sitem .st { color: var(--ink-2); font-size: .8rem; font-weight: 700; white-space: nowrap; }
+.sitem .st-missed { color: var(--red); }
+.sitem .st-mastered { color: var(--green); }
+.more > summary { cursor: pointer; color: var(--blue); padding: 8px 0; text-decoration: underline; text-underline-offset: 3px; }
+.more[open] { display: flex; flex-direction: column; gap: 12px; }
+.more h2 { margin-top: 12px; }
+.btn.dunno { align-self: flex-start; margin-top: 12px; }
 .sbody { display: flex; flex-direction: column; gap: 14px; padding-bottom: 18px; min-width: 0; }
 
 /* forms and prose */
@@ -386,5 +393,5 @@ body.in-quiz .foot { display: none; }
 .crumb { margin: 0; font-size: .9rem; }
 .crumb a { color: var(--ink-2); text-decoration: none; font-weight: 700; }
 .crumb a:hover { color: var(--blue); }
-.gchip { margin: 0 0 10px; font-weight: 800; border-style: dashed; }
+.gchip { font-weight: 700; }
 .gchip[aria-pressed="mixed"] { border-color: var(--blue); background: var(--blue-soft); border-style: solid; }

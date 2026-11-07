@@ -31,10 +31,11 @@ Tu progreso se queda en tu navegador y funciona sin conexión después de la pri
 ## Qué ofrece
 
 - **Una pregunta al instante.** Responde la de la portada, o pulsa `/` para buscar y `1` a `4` para contestar.
+- **"No la sé" también vale.** Ves la respuesta sin adivinar y no cuenta como fallo.
 - **Preguntas que vuelven cuando toca.** Cinco cajas, estilo Leitner. Si fallas, vuelve el mismo día. Si aciertas, tarda más.
 - **Primero, preguntas de entrevista.** Las nuevas empiezan por lo que preguntan de verdad. ¿Prefieres ir subiendo? Elige "Desde lo básico" y cada tema se abre nivel a nivel.
 - **Cuatro modos.** Repaso inteligente, al azar, solo mis fallos, y examen con cronómetro (30, 60 o 90 segundos por pregunta).
-- **Modo Estudiar.** Lee todas las respuestas y explicaciones sin que te pregunten nada.
+- **Temas.** Todas las preguntas de un tema con su estado, para que la noche antes leas solo las que fallaste.
 - **Los dos idiomas.** Un botón. La primera visita sigue el idioma de tu navegador y el código se queda en inglés.
 - **Búsqueda** en preguntas, glosario y temas, en los dos idiomas.
 - **Tema claro y oscuro**, instalable y sin conexión después de la primera visita.
