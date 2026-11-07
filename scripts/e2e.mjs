@@ -95,6 +95,7 @@ for (const [label, viewport, touch] of [["mobile", { width: 390, height: 844 }, 
     ok((await on(web)) === "mixed", "one topic makes the category mixed");
     await p.locator("[data-panel=topics][open]").waitFor();
     await allChip.click();
+    ok((await p.evaluate(() => JSON.parse(localStorage.getItem("repaso-prefs-v1")).cats.length)) === 0, "All is saved as an open list, so new topics join it");
   });
   await check(`${label}: search finds a term and a question`, async () => {
     await p.goto(`${URL_}#/`);
@@ -308,6 +309,8 @@ await check("I don't know shows the answer and changes nothing", async () => {
   await p.locator("[data-act=next]").click();
   await p.locator("[data-act=end]").click();
   await p.getByText("The ones you didn't know").waitFor();
+  ok(!(await p.getByText("Clean run").count()), "a session of I don't know is not a clean run");
+  ok(!(await p.locator(".ring").count()), "a score with nothing answered");
   await p.locator("[data-act=retry]").click();
   await p.locator(".qtop").waitFor();
   await ctx.close();

@@ -45,7 +45,8 @@ const ui = {
   order: saved.order === "basics" ? "basics" : "interview",
   cats: Array.isArray(saved.cats) ? new Set(saved.cats) : null,
 };
-const savePrefs = () => lsSet(KEYS.prefs, { ...ui, cats: [...(ui.cats || [])] });
+// "All" is saved as an empty list, so a topic added later is part of it.
+const savePrefs = () => lsSet(KEYS.prefs, { ...ui, cats: ui.cats && !allPicked() ? [...ui.cats] : [] });
 
 const t = (key, vars) => {
   let s = STRINGS[ui.lang][key] ?? STRINGS.en[key] ?? key;
@@ -257,7 +258,7 @@ function pickHome() {
   const pool = inCats(ui.cats).filter((q) => q.t === "m" && !q.c && unlocked(q));
   const d = due(pool), n = unseen(pool);
   const list = d.length ? d : n.length ? n.filter((q) => newRank(q) === Math.min(...n.map(newRank))) : pool;
-  const q = list[Math.floor(Math.random() * list.length)] || BANK[0];
+  const q = list[Math.floor(Math.random() * list.length)] || shuffle(inCats(ui.cats).filter((x) => x.t === "m" && !x.c))[0] || BANK[0];
   return { q, order: shuffle(q.o.map((_, i) => i)) };
 }
 function viewHome() {
@@ -466,12 +467,12 @@ function viewDone() {
   document.body.classList.remove("in-quiz");
   main.innerHTML = `<div class="stack">
   <h1>${t("done.title")}</h1>
-  <div class="done-top"><div class="ring" style="--p:${pct(S.right, S.total)}"><p class="score">${S.right} / ${S.total}</p></div>
-  <p class="muted">${t("done.correct", { p: pct(S.right, S.total) })}${S.exam ? `, ${t("done.timeouts", { n: S.timeouts })}` : ""}</p></div>
+  ${S.total ? `<div class="done-top"><div class="ring" style="--p:${pct(S.right, S.total)}"><p class="score">${S.right} / ${S.total}</p></div>
+  <p class="muted">${t("done.correct", { p: pct(S.right, S.total) })}${S.exam ? `, ${t("done.timeouts", { n: S.timeouts })}` : ""}</p></div>` : ""}
   ${pct(S.right, S.total) >= 80 && S.total >= 3 ? confettiHTML() : ""}
   <section class="section"><h2>${t("home.boxes")}</h2>${boxesHTML()}</section>
-  <section class="section"><h2>${t("done.missed")}</h2>
-  ${S.missed.length ? `<ul class="results">${S.missed.map((q) => `<li><a href="#/q/${q.id}"><b>${stem(q)}</b></a></li>`).join("")}</ul>` : `<p class="muted">${t("done.clean")}</p>`}</section>
+  ${S.missed.length || !S.unknown.length ? `<section class="section"><h2>${t("done.missed")}</h2>
+  ${S.missed.length ? `<ul class="results">${S.missed.map((q) => `<li><a href="#/q/${q.id}"><b>${stem(q)}</b></a></li>`).join("")}</ul>` : `<p class="muted">${t("done.clean")}</p>`}</section>` : ""}
   ${S.unknown.length ? `<section class="section"><h2>${t("done.unknown")}</h2><ul class="results">${S.unknown.map((q) => `<li><a href="#/q/${q.id}"><b>${stem(q)}</b></a></li>`).join("")}</ul></section>` : ""}
   ${CONFIG.firebase && !acct.user ? `<p><a href="#/account">${t("done.save")}</a></p>` : ""}
   </div>`;
@@ -829,6 +830,7 @@ async function boot() {
   }
   ui.cats = new Set([...(ui.cats?.size ? ui.cats : TOPICS.map((c) => c.k))].filter((k) => TOPIC[k]));
   if (!ui.cats.size) TOPICS.forEach((c) => ui.cats.add(c.k));
+  if (allPicked() && saved.cats?.length) savePrefs(); // moves "All" saved as a full list to the empty form
   P = sanitizeProgress(P, BYID);
   refreshLevels(P, BANK, TOPICS);
   if (ui.lang === "es") await loadEs().catch(() => toast(t("offline.es")));
