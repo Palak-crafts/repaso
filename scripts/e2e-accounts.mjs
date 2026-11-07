@@ -78,11 +78,17 @@ async function githubLikeProduction(ctx) {
   });
 }
 const ownerOf = (p) => p.evaluate(() => JSON.parse(localStorage.getItem("repaso-progress-v1")).owner);
-async function providersOf(uid) {
-  const r = await fetch(`${AUTH}/identitytoolkit.googleapis.com/v1/projects/${PROJECT}/accounts:lookup`, {
-    method: "POST", headers: { ...owner, "Content-Type": "application/json" }, body: JSON.stringify({ localId: [uid] }),
-  });
-  return ((await r.json()).users?.[0]?.providerUserInfo || []).map((x) => x.providerId).sort();
+async function providersOf(uid, wanted = 1) {
+  let list = [];
+  // The link finishes just after the page shows the person as signed in.
+  for (let i = 0; i < 40 && list.length < wanted; i++) {
+    const r = await fetch(`${AUTH}/identitytoolkit.googleapis.com/v1/projects/${PROJECT}/accounts:lookup`, {
+      method: "POST", headers: { ...owner, "Content-Type": "application/json" }, body: JSON.stringify({ localId: [uid] }),
+    });
+    list = ((await r.json()).users?.[0]?.providerUserInfo || []).map((x) => x.providerId).sort();
+    if (list.length < wanted) await new Promise((res) => setTimeout(res, 250));
+  }
+  return list;
 }
 async function cloudAnswers(uid, atLeast) {
   let n = 0;
@@ -269,7 +275,8 @@ await check("GitHub on an e-mail that has Google: asks for Google, links both, n
   await popupLogin(second.page, second.ctx, "google", EMAIL_BOTH);
   await second.page.locator("[data-acct=out]").waitFor();
   ok((await ownerOf(second.page)) === uid, "Google opened a different account");
-  ok((await providersOf(uid)).join() === "github.com,google.com", `providers: ${await providersOf(uid)}`);
+  const providers = await providersOf(uid, 2);
+  ok(providers.join() === "github.com,google.com", `providers: ${providers}`);
   ok((await cloudAnswers(uid, 2)) === 2, "progress from the two devices was not joined");
 
   await signOut(second.page);
