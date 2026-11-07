@@ -92,7 +92,7 @@ Si aciertas, la pregunta sube una caja. Si fallas, vuelve a la caja 1. Cuanto m�
 
 ## ¿Encontraste un error?
 
-Es bastante posible. Las preguntas y la traducción son AI-assisted, así que por favor avísame. Cada pregunta tiene un enlace "Sugerir una corrección" que abre un issue ya rellenado aquí.
+Cada pregunta tiene un enlace "Sugerir una corrección" que abre un issue ya rellenado aquí.
 
 Si quieres arreglarlo tú, el contenido es JSON normal. [CONTRIBUTING.md](CONTRIBUTING.md) tiene la versión corta (en inglés):
 
