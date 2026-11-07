@@ -90,7 +90,7 @@ A right answer moves a question up one box. A miss sends it back to box 1. The h
 
 ## Found a mistake?
 
-Quite possible. The questions and the Spanish translation are AI-assisted, so please tell me. Every question has a "Suggest a correction" link that opens a prefilled issue here.
+Every question has a "Suggest a correction" link that opens a prefilled issue here.
 
 If you want to fix it yourself, the content is plain JSON. [CONTRIBUTING.md](CONTRIBUTING.md) has the short version:
 
