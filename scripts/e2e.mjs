@@ -194,6 +194,71 @@ await check("first visit follows the browser language, and a saved choice wins",
     await ctx.close();
   }
 });
+const levelOnScreen = (p) => p.locator(".qmeta span").first().innerText();
+const walkSession = async (p, onQuestion) => {
+  for (let i = 0; i < 80; i++) {
+    if (await p.locator("[data-act=again], [data-act=retry]").count()) return;
+    if (await p.locator("[data-act=next]").count()) { await p.locator("[data-act=next]").click(); continue; }
+    if (await p.locator(".qmeta").count()) await onQuestion();
+    if (await p.locator("[data-act=reveal]").count()) { await p.locator("[data-act=reveal]").click(); await p.locator("[data-act=got]").click(); continue; }
+    if (await p.locator(".opt:not([disabled])").count()) { await p.locator(".opt").first().click(); continue; }
+    await p.waitForTimeout(50);
+  }
+  throw new Error("no end screen");
+};
+await check("a new visitor gets interview questions, never Foundations, in the first session", async () => {
+  for (let i = 0; i < 4; i++) {
+    const ctx = await browser.newContext({ locale: "en-US" });
+    const p = await ctx.newPage();
+    await p.goto(URL_);
+    await p.locator(".opt").first().waitFor();
+    const hero = await levelOnScreen(p);
+    ok(hero === "Basic" || hero === "Intermediate", `home question is ${hero}`);
+    await p.locator("[data-go=quick]").click();
+    await p.locator(".qtop").waitFor();
+    await walkSession(p, async () => { const l = await levelOnScreen(p); ok(l !== "Foundations", "a Foundations question in the first session"); });
+    await ctx.close();
+  }
+});
+await check("someone who already uses the app keeps all their progress and settings", async () => {
+  const ctx = await browser.newContext({ locale: "en-US" });
+  const p = await ctx.newPage();
+  const items = { "PY-62": { b: 1, d: 1000, n: 3, c: 1, w: 2, l: 0, t: 900 }, "PY-01": { b: 4, d: 8.6e15, n: 5, c: 5, w: 0, l: 1, t: 900 } };
+  const old = { v: 1, items, stats: { answered: 8, correct: 6, streak: 2, best: 5 }, updatedAt: 900, studied: { "PY-02": 1 }, levels: { py: 1 } };
+  await p.addInitScript(([a, b]) => {
+    if (localStorage.getItem("seeded")) return;
+    localStorage.setItem("seeded", "1");
+    localStorage.setItem("repaso-progress-v1", a); localStorage.setItem("repaso-prefs-v1", b);
+  }, [JSON.stringify(old), JSON.stringify({ lang: "en", mode: "smart", size: 10, timer: 90, levels: "auto", cats: ["py"], stLv: 0 })]);
+  await p.goto(`${URL_}#/practice`);
+  await p.locator("[data-order=interview]").waitFor();
+  ok((await p.locator("[data-order=interview]").getAttribute("aria-pressed")) === "true", "the old setting kept the lock on");
+  ok((await p.locator("[data-cat=py]").getAttribute("aria-pressed")) === "true", "topics forgotten");
+  ok((await p.locator("[data-cat=db]").getAttribute("aria-pressed")) === "false", "topics changed");
+  await p.locator("[data-go=mode]").click();
+  await p.locator(".qmeta").first().waitFor();
+  const seen = [];
+  await walkSession(p, async () => { seen.push(await p.locator(".qtext").innerText()); });
+  ok(seen.some((q) => q.includes("age = 30")), "the question that was due did not come back");
+  const after = await p.evaluate(() => JSON.parse(localStorage.getItem("repaso-progress-v1")));
+  ok(after.items["PY-01"].n === 5 && after.items["PY-01"].b === 4, "a saved answer was lost");
+  ok(after.studied["PY-02"] === 1, "read marks lost");
+  ok(after.levels.py >= 1, "unlocked level lost");
+  ok(after.stats.best >= 5 && after.stats.answered >= 18, "stats lost");
+  await ctx.close();
+});
+await check("From the basics brings back level by level, and is remembered", async () => {
+  const ctx = await browser.newContext({ locale: "en-US" });
+  const p = await ctx.newPage();
+  await p.goto(`${URL_}#/practice`);
+  await p.locator("[data-order=basics]").click();
+  await p.reload();
+  await p.locator("[data-order=basics][aria-pressed=true]").waitFor();
+  await p.locator("[data-go=mode]").click();
+  await p.locator(".qmeta").first().waitFor();
+  await walkSession(p, async () => { ok((await levelOnScreen(p)) === "Foundations", "above Foundations before unlocking"); });
+  await ctx.close();
+});
 await check("odd links never break the app: unknown and prototype-like ids", async () => {
   const ctx = await browser.newContext({ locale: "en-US" });
   const p = await ctx.newPage();

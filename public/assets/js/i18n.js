@@ -15,10 +15,10 @@ export const STRINGS = {
     "q.correct": "Correct", "q.wrong": "Not quite. The answer is {k}.", "q.timeup": "Time is up. The answer is {k}.",
     "q.answer": "Answer", "q.model": "Model answer", "q.why": "Why", "q.remember": "Remember", "q.terms": "Key terms", "q.termqs": "Questions using this term",
     "q.levelup": "Level unlocked in {topic}: {level}.",
-    "setup.mode": "Mode", "setup.topics": "Topics", "setup.all": "Select all", "setup.none": "Clear all", "setup.level": "Difficulty", "setup.size": "Questions per session", "setup.time": "Seconds per question",
-    "setup.auto": "Unlock as I learn", "setup.anylevel": "All levels", "setup.level.hint": "Each topic starts at Foundations. Get 70% of a level right and the next one unlocks.",
+    "setup.mode": "Mode", "setup.topics": "Topics", "setup.all": "Select all", "setup.none": "Clear all", "setup.level": "Where to start", "setup.size": "Questions per session", "setup.time": "Seconds per question",
+    "setup.interview": "Interview questions", "setup.basics": "From the basics", "setup.interview.hint": "Starts with what interviewers ask. Foundations wait until the end.", "setup.basics.hint": "Each topic starts at Foundations. Get 70% of a level right and the next one unlocks.",
     "mode.smart": "Smart review", "mode.all": "Random", "mode.weak": "My misses", "mode.exam": "Exam",
-    "mode.smart.d": "Questions due today first, then new ones, easiest first.", "mode.all.d": "Random questions from your unlocked levels.", "mode.weak.d": "Only the questions you got wrong last time.", "mode.exam.d": "Timed multiple choice. Running out of time counts as a miss.",
+    "mode.smart.d": "Questions due today first, then new ones.", "mode.all.d": "Random questions from your topics. Foundations stay out unless you start from the basics.", "mode.weak.d": "Only the questions you got wrong last time.", "mode.exam.d": "Timed multiple choice. Running out of time counts as a miss.",
     "setup.go": "Start {n} questions", "err.storage": "This browser is not letting Repaso save your progress. Download it from Your progress to keep it.", "setup.empty.smart": "Nothing due. Come back later or try Random.", "setup.empty.weak": "No misses to review.", "setup.empty.topics": "Select at least one topic.",
     "setup.progress": "Progress by topic", "setup.mastered": "{m} of {t} mastered", "setup.goal": "{ok} of {need} right to unlock {level}", "setup.top": "All levels unlocked",
     "done.title": "Session finished", "done.correct": "{p}% correct", "done.timeouts": "{n} ran out of time", "done.missed": "Missed this session", "done.clean": "No misses. Clean run.", "done.retry": "Retry {n} missed", "done.again": "Another session", "done.home": "Home", "done.save": "Save this progress across devices",
@@ -56,10 +56,10 @@ export const STRINGS = {
     "q.correct": "Correcto", "q.wrong": "No exactamente. La respuesta es {k}.", "q.timeup": "Se acabó el tiempo. La respuesta es {k}.",
     "q.answer": "Respuesta", "q.model": "Respuesta modelo", "q.why": "Por qué", "q.remember": "Recuerda", "q.terms": "Términos clave", "q.termqs": "Preguntas con este término",
     "q.levelup": "Nivel desbloqueado en {topic}: {level}.",
-    "setup.mode": "Modo", "setup.topics": "Temas", "setup.all": "Elegir todos", "setup.none": "Quitar todos", "setup.level": "Dificultad", "setup.size": "Preguntas por sesión", "setup.time": "Segundos por pregunta",
-    "setup.auto": "Desbloquear al aprender", "setup.anylevel": "Todos los niveles", "setup.level.hint": "Cada tema empieza en Fundamentos. Acierta el 70% de un nivel y se desbloquea el siguiente.",
+    "setup.mode": "Modo", "setup.topics": "Temas", "setup.all": "Elegir todos", "setup.none": "Quitar todos", "setup.level": "Por dónde empezar", "setup.size": "Preguntas por sesión", "setup.time": "Segundos por pregunta",
+    "setup.interview": "Preguntas de entrevista", "setup.basics": "Desde lo básico", "setup.interview.hint": "Empieza por lo que preguntan en entrevista. Los Fundamentos quedan para el final.", "setup.basics.hint": "Cada tema empieza en Fundamentos. Acierta el 70% de un nivel y se desbloquea el siguiente.",
     "mode.smart": "Repaso inteligente", "mode.all": "Al azar", "mode.weak": "Mis fallos", "mode.exam": "Examen",
-    "mode.smart.d": "Primero las preguntas que tocan hoy, luego las nuevas, de la más fácil a la más difícil.", "mode.all.d": "Preguntas al azar de tus niveles desbloqueados.", "mode.weak.d": "Solo las preguntas que fallaste la última vez.", "mode.exam.d": "Opción múltiple con tiempo. Si se acaba el tiempo, cuenta como fallo.",
+    "mode.smart.d": "Primero las preguntas que tocan hoy, luego las nuevas.", "mode.all.d": "Preguntas al azar de tus temas. Los Fundamentos quedan fuera salvo que empieces desde lo básico.", "mode.weak.d": "Solo las preguntas que fallaste la última vez.", "mode.exam.d": "Opción múltiple con tiempo. Si se acaba el tiempo, cuenta como fallo.",
     "setup.go": "Empezar {n} preguntas", "err.storage": "Este navegador no deja que Repaso guarde tu progreso. Descárgalo desde Tu progreso para conservarlo.", "setup.empty.smart": "No hay nada para hoy. Vuelve más tarde o prueba Al azar.", "setup.empty.weak": "No tienes fallos que repasar.", "setup.empty.topics": "Elige al menos un tema.",
     "setup.progress": "Progreso por tema", "setup.mastered": "{m} de {t} dominadas", "setup.goal": "{ok} de {need} aciertos para desbloquear {level}", "setup.top": "Todos los niveles desbloqueados",
     "done.title": "Sesión terminada", "done.correct": "{p}% de aciertos", "done.timeouts": "{n} sin tiempo", "done.missed": "Falladas en esta sesión", "done.clean": "Ningún fallo. Sesión perfecta.", "done.retry": "Reintentar {n} falladas", "done.again": "Otra sesión", "done.home": "Inicio", "done.save": "Guardar este progreso entre dispositivos",
@@ -93,7 +93,7 @@ export const PAGES = {
 <ul><li>Box 1: right away</li><li>Box 2: tomorrow</li><li>Box 3: in 3 days</li><li>Box 4: in 7 days</li><li>Box 5: in 16 days</li></ul>
 <p>A question you get right the first time starts in box 2. Boxes 4 and 5 count as mastered.</p>
 <h2>Levels</h2>
-<p>Each topic has four levels: Foundations, Basic, Intermediate and Advanced. Get 70% of a level right and the next one unlocks. You can turn this off in Practice.</p>
+<p>Each topic has four levels: Foundations, Basic, Intermediate and Advanced. New questions start with what interviewers ask, and Foundations come last. To build up instead, pick From the basics in Practice: each topic starts at Foundations and 70% right opens the next level.</p>
 <h2>Keyboard</h2>
 <p>Press 1 to 4 to answer, Enter to continue and / to search.</p>
 <h2>Who made this</h2>
@@ -119,7 +119,7 @@ export const PAGES = {
 <ul><li>Caja 1: enseguida</li><li>Caja 2: mañana</li><li>Caja 3: en 3 días</li><li>Caja 4: en 7 días</li><li>Caja 5: en 16 días</li></ul>
 <p>Una pregunta que aciertas a la primera empieza en la caja 2. Las cajas 4 y 5 cuentan como dominadas.</p>
 <h2>Niveles</h2>
-<p>Cada tema tiene cuatro niveles: Fundamentos, Básico, Intermedio y Avanzado. Acierta el 70% de un nivel y se desbloquea el siguiente. Puedes desactivarlo en Practicar.</p>
+<p>Cada tema tiene cuatro niveles: Fundamentos, Básico, Intermedio y Avanzado. Las preguntas nuevas empiezan por lo que preguntan en entrevista, y los Fundamentos salen al final. Si prefieres ir subiendo, elige Desde lo básico en Practicar: cada tema empieza en Fundamentos y con el 70% de aciertos se abre el siguiente nivel.</p>
 <h2>Teclado</h2>
 <p>Pulsa 1 a 4 para responder, Enter para continuar y / para buscar.</p>
 <h2>Quién lo hizo</h2>

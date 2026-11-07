@@ -32,7 +32,7 @@ Your progress stays in your browser, and it works offline after the first visit.
 
 - **A question right away.** Answer the one on the home page, or press `/` to search and `1` to `4` to answer.
 - **Questions that come back when they should.** Five boxes, Leitner style. Miss one and it returns the same day, get it right and it waits longer.
-- **Four levels per topic.** Each topic starts at Foundations. Get 70% of a level right and the next one opens.
+- **Interview questions first.** New questions start with what interviewers ask. Want to build up instead? Pick "From the basics" and each topic opens level by level.
 - **Four modes.** Smart review, random, only my misses, and an exam with a timer (30, 60 or 90 seconds per question).
 - **Study mode.** Read every answer and explanation without being quizzed.
 - **Both languages.** One button. The first visit follows your browser language, and code stays in English.

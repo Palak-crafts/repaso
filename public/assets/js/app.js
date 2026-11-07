@@ -1,6 +1,6 @@
 import {
   blankProgress, validProgress, shuffle, pct, esc, inline, richText, highlight,
-  gradeItem, gradeStats, levelStats, refreshLevels, boxCounts, mergeProgress, sanitizeProgress, searchDocs, search,
+  gradeItem, gradeStats, interviewTier, levelStats, refreshLevels, boxCounts, mergeProgress, sanitizeProgress, searchDocs, search,
 } from "./core.js";
 import { STRINGS, PAGES } from "./i18n.js";
 import { CONFIG } from "./config.js";
@@ -41,9 +41,10 @@ const ui = {
   mode: MODES.includes(saved.mode) ? saved.mode : "smart",
   size: SIZES.includes(saved.size) ? saved.size : 10,
   timer: TIMERS.includes(saved.timer) ? saved.timer : 60,
-  levels: saved.levels === "all" ? "all" : "auto",
+  // Replaces the old "levels" setting on purpose: that one was saved as "auto" for everyone, chosen or not.
+  order: saved.order === "basics" ? "basics" : "interview",
   cats: Array.isArray(saved.cats) ? new Set(saved.cats) : null,
-  stLv: saved.stLv === "all" || [0, 1, 2, 3].includes(saved.stLv) ? saved.stLv : 0,
+  stLv: saved.stLv === "all" || [0, 1, 2, 3].includes(saved.stLv) ? saved.stLv : 1,
 };
 const savePrefs = () => lsSet(KEYS.prefs, { ...ui, cats: [...(ui.cats || [])] });
 
@@ -135,29 +136,32 @@ function paintAcct() {
 }
 
 /* ---------- selection ---------- */
-const topicLevel = (cat) => (ui.levels === "all" ? 3 : P.levels[cat] ?? 0);
-const unlocked = (q) => q.l <= topicLevel(q.cat);
+const basics = () => ui.order === "basics";
+const unlocked = (q) => !basics() || q.l <= (P.levels[q.cat] ?? 0);
+/** What Random and Exam draw from. Foundations only come up in those when the person asked to start from the basics. */
+const drawable = (q) => (basics() ? unlocked(q) : q.l > 0);
+const newRank = (q) => (basics() ? q.l : interviewTier(q));
 const it = (q) => P.items[q.id];
 const inCats = (cats) => BANK.filter((q) => cats.has(q.cat));
 const due = (list) => { const now = Date.now(); return list.filter((q) => { const x = it(q); return x && x.d <= now; }); };
 const unseen = (list) => list.filter((q) => !it(q));
-const easiestFirst = (list) => shuffle(list).sort((a, b) => a.l - b.l);
+const newInOrder = (list) => shuffle(list).sort((a, b) => newRank(a) - newRank(b));
 
 function smartList(cats, n) {
   const pool = inCats(cats).filter(unlocked);
   const d = due(pool).sort((a, b) => it(a).b - it(b).b || it(a).d - it(b).d);
-  return shuffle(d.concat(easiestFirst(unseen(pool))).slice(0, n));
+  return shuffle(d.concat(newInOrder(unseen(pool))).slice(0, n));
 }
 function modeList(mode) {
-  const pool = inCats(ui.cats).filter(unlocked);
+  const pool = inCats(ui.cats).filter(drawable);
   if (mode === "smart") return smartList(ui.cats, ui.size);
   if (mode === "weak") return shuffle(inCats(ui.cats).filter((q) => it(q)?.b === 1)).slice(0, ui.size);
   if (mode === "exam") return shuffle(pool.filter((q) => q.t === "m")).slice(0, ui.size);
   return shuffle(pool).slice(0, ui.size);
 }
 function modeAvailable(mode) {
-  const pool = inCats(ui.cats).filter(unlocked);
-  if (mode === "smart") return due(pool).length + unseen(pool).length;
+  const pool = inCats(ui.cats).filter(drawable);
+  if (mode === "smart") { const all = inCats(ui.cats).filter(unlocked); return due(all).length + unseen(all).length; }
   if (mode === "weak") return inCats(ui.cats).filter((q) => it(q)?.b === 1).length;
   if (mode === "exam") return pool.filter((q) => q.t === "m").length;
   return pool.length;
@@ -243,7 +247,7 @@ let homeQ = null, homeGroup = "all";
 function pickHome() {
   const pool = BANK.filter((q) => q.t === "m" && !q.c && unlocked(q));
   const d = due(pool), n = unseen(pool);
-  const list = d.length ? d : n.length ? n.filter((q) => q.l <= Math.min(...n.map((x) => x.l))) : pool;
+  const list = d.length ? d : n.length ? n.filter((q) => newRank(q) === Math.min(...n.map(newRank))) : pool;
   const q = list[Math.floor(Math.random() * list.length)] || BANK[0];
   return { q, order: shuffle(q.o.map((_, i) => i)) };
 }
@@ -322,8 +326,8 @@ function viewPractice() {
     <p class="muted small">${t("setup.tree")}</p>
     ${GROUPS.map((g) => `<div class="grp"><button type="button" class="chip gchip" data-grp="${g.k}" aria-pressed="${groupState(g.k)}">${esc(groupName(g.k))} <small>${inGroup(g.k).filter((c) => ui.cats.has(c.k)).length}/${inGroup(g.k).length}</small></button><div class="chips">${inGroup(g.k).map((c) => `<button type="button" class="chip" data-cat="${c.k}" aria-pressed="${ui.cats.has(c.k)}">${esc(topicName(c.k))}</button>`).join("")}</div></div>`).join("")}</section>
   <section class="section"><h2>${t("setup.level")}</h2>
-    <div class="chips"><button type="button" class="chip" data-levels="auto" aria-pressed="${ui.levels === "auto"}">${t("setup.auto")}</button><button type="button" class="chip" data-levels="all" aria-pressed="${ui.levels === "all"}">${t("setup.anylevel")}</button></div>
-    <p class="muted small">${t("setup.level.hint")}</p></section>
+    <div class="chips">${["interview", "basics"].map((o) => `<button type="button" class="chip" data-order="${o}" aria-pressed="${ui.order === o}">${t(`setup.${o}`)}</button>`).join("")}</div>
+    <p class="muted small">${t(`setup.${ui.order}.hint`)}</p></section>
   <section class="section"><h2>${t("setup.size")}</h2>
     <div class="chips">${SIZES.map((s) => `<button type="button" class="chip" data-size="${s}" aria-pressed="${ui.size === s}">${s}</button>`).join("")}</div></section>
   ${ui.mode === "exam" ? `<section class="section"><h2>${t("setup.time")}</h2><div class="chips">${TIMERS.map((s) => `<button type="button" class="chip" data-timer="${s}" aria-pressed="${ui.timer === s}">${s}</button>`).join("")}</div></section>` : ""}
@@ -331,7 +335,7 @@ function viewPractice() {
   <section class="section"><h2>${t("setup.progress")}</h2>
     <div>${GROUPS.map((g) => `<h3 class="grp-h">${esc(groupName(g.k))}</h3>${inGroup(g.k).map((c) => {
       const qs = BANK.filter((q) => q.cat === c.k), m = qs.filter((q) => it(q)?.b >= 4).length, l = P.levels[c.k] ?? 0, s = l < 3 ? levelStats(P, BANK, c.k, l) : null;
-      return `<a class="topic-row" href="#/study/${c.k}"><b>${esc(topicName(c.k))}</b><small>${lv(l)}</small><small>${s ? t("setup.goal", { ok: s.ok, need: s.need, level: lv(l + 1) }) : t("setup.top")}</small><small>${t("setup.mastered", { m, t: qs.length })}</small></a>`;
+      return `<a class="topic-row" href="#/study/${c.k}"><b>${esc(topicName(c.k))}</b>${basics() ? `<small>${lv(l)}</small><small>${s ? t("setup.goal", { ok: s.ok, need: s.need, level: lv(l + 1) }) : t("setup.top")}</small>` : ""}<small>${t("setup.mastered", { m, t: qs.length })}</small></a>`;
     }).join("")}`).join("")}</div></section></div>`;
 }
 
@@ -408,7 +412,7 @@ function grade(q, ok) {
   const ups = refreshLevels(P, BANK, TOPICS);
   S.ups.push(...ups);
   save();
-  if (ups.length) toast(ups.map((u) => t("q.levelup", { topic: topicName(u.cat), level: lv(u.level) })).join(" "));
+  if (ups.length && basics()) toast(ups.map((u) => t("q.levelup", { topic: topicName(u.cat), level: lv(u.level) })).join(" "));
 }
 function answer(k) {
   if (S.state) return;
@@ -679,7 +683,7 @@ document.addEventListener("click", async (e) => {
   else if (d.grp) { const ks = inGroup(d.grp).map((c) => c.k), all = ks.every((k) => ui.cats.has(k)); ks.forEach((k) => (all ? ui.cats.delete(k) : ui.cats.add(k))); savePrefs(); render(); }
   else if (d.hg) { homeGroup = d.hg; render(); }
   else if ("allcats" in d) { if (ui.cats.size === TOPICS.length) ui.cats.clear(); else TOPICS.forEach((c) => ui.cats.add(c.k)); savePrefs(); render(); }
-  else if (d.levels) { ui.levels = d.levels; savePrefs(); render(); }
+  else if (d.order) { ui.order = d.order; homeQ = null; savePrefs(); render(); }
   else if (d.size) { ui.size = +d.size; savePrefs(); render(); }
   else if (d.timer) { ui.timer = +d.timer; savePrefs(); render(); }
   else if (d.read) {
