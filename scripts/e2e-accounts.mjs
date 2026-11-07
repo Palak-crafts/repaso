@@ -20,7 +20,7 @@ await new Promise((r) => setTimeout(r, 700));
 const results = [];
 async function check(name, fn) {
   try { await fn(); results.push(["ok", name]); console.log("  ok  ", name); }
-  catch (e) { results.push(["FAIL", name]); console.log(" FAIL ", name, "::", e.message.split("\n")[0]); }
+  catch (e) { results.push(["FAIL", name]); console.log(" FAIL ", name, "::", e.message.split("\n").slice(0, 12).join(" | ")); }
 }
 const ok = (v, msg) => { if (!v) throw new Error(msg || "assertion failed"); };
 
