@@ -32,7 +32,7 @@ Tu progreso se queda en tu navegador y funciona sin conexión después de la pri
 
 - **Una pregunta al instante.** Responde la de la portada, o pulsa `/` para buscar y `1` a `4` para contestar.
 - **Preguntas que vuelven cuando toca.** Cinco cajas, estilo Leitner. Si fallas, vuelve el mismo día. Si aciertas, tarda más.
-- **Cuatro niveles por tema.** Cada tema empieza en Fundamentos. Acierta el 70% de un nivel y se abre el siguiente.
+- **Primero, preguntas de entrevista.** Las nuevas empiezan por lo que preguntan de verdad. ¿Prefieres ir subiendo? Elige "Desde lo básico" y cada tema se abre nivel a nivel.
 - **Cuatro modos.** Repaso inteligente, al azar, solo mis fallos, y examen con cronómetro (30, 60 o 90 segundos por pregunta).
 - **Modo Estudiar.** Lee todas las respuestas y explicaciones sin que te pregunten nada.
 - **Los dos idiomas.** Un botón. La primera visita sigue el idioma de tu navegador y el código se queda en inglés.

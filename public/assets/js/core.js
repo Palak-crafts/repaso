@@ -88,6 +88,15 @@ export function levelStats(progress, bank, cat, level) {
   const ok = qs.filter((q) => { const x = progress.items[q.id]; return x && x.b >= 2; }).length;
   return { total: qs.length, ok, need: Math.ceil(qs.length * UNLOCK_RATIO) };
 }
+/**
+ * Where a new question sits in the default order, lowest first: what an interviewer would ask and you would
+ * answer out loud, then the rest of Basic and Intermediate, then Advanced, and Foundations last.
+ */
+export function interviewTier(q) {
+  if (q.l === 0) return 3;
+  if (q.l === 3) return 2;
+  return q.t === "f" || q.fa ? 0 : 1;
+}
 /** Highest level per topic. A level unlocks at 70% of the previous one in box 2+, and never relocks. */
 export function refreshLevels(progress, bank, topics) {
   const levels = progress.levels || (progress.levels = {});

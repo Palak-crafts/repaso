@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  DAY, blankProgress, validProgress, esc, inline, richText, gradeItem, gradeStats, levelStats,
+  DAY, blankProgress, validProgress, esc, inline, richText, gradeItem, gradeStats, interviewTier, levelStats,
   refreshLevels, boxCounts, mergeProgress, normalize, searchDocs, search, highlight, shuffle, pct,
 } from "../public/assets/js/core.js";
 
@@ -52,6 +52,14 @@ test("a level never relocks", () => {
   p.levels.a = 1;
   refreshLevels(p, bank, topics);
   assert.equal(p.levels.a, 1);
+});
+test("new questions start with spoken interview answers and leave Foundations for last", () => {
+  const tier = (q) => interviewTier(q);
+  assert.equal(tier({ l: 1, t: "m", fa: "A full answer" }), 0);
+  assert.equal(tier({ l: 2, t: "f" }), 0);
+  assert.equal(tier({ l: 2, t: "m" }), 1);
+  assert.equal(tier({ l: 3, t: "f" }), 2);
+  assert.equal(tier({ l: 0, t: "m", fa: "A full answer" }), 3, "Foundations stay last even with a full answer");
 });
 test("box counts treat unseen questions as box 0", () => {
   const p = blankProgress();
