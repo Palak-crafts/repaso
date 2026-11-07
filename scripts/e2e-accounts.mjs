@@ -241,7 +241,9 @@ await check("delete account: the suggestions sent from the site are gone too", a
   ok((list.documents || []).some((d) => d.fields.uid.stringValue === stranger.uid), "someone else's suggestion was removed");
 });
 
-const EMAIL_NEW = `nueva${Date.now()}@example.com`, EMAIL_BOTH = `ambas${Date.now()}@example.com`, EMAIL_REVERSE = `reves${Date.now()}@example.com`;
+// A deleted account leaves old provider ids behind in the emulator, and its Google page then fails to open.
+await fetch(`${AUTH}/emulator/v1/projects/${PROJECT}/accounts`, { method: "DELETE", headers: owner });
+const EMAIL_NEW = `nueva${Date.now()}@example.com`,EMAIL_BOTH = `ambas${Date.now()}@example.com`, EMAIL_REVERSE = `reves${Date.now()}@example.com`;
 
 await check("GitHub with a new e-mail: a new account that keeps the local progress", async () => {
   const c = await device();
