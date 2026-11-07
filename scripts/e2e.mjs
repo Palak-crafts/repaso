@@ -24,6 +24,7 @@ const FB = /firebase: (?:null|\{[\s\S]*?\n  \}),/;
 const rawContext = browser.newContext.bind(browser);
 browser.newContext = async (opts) => {
   const c = await rawContext(opts);
+  c.setDefaultTimeout(6000);
   await c.route("**/assets/js/config.js", async (r) => {
     try {
       const res = await r.fetch();
@@ -77,15 +78,24 @@ for (const [label, viewport, touch] of [["mobile", { width: 390, height: 844 }, 
     await p.locator("[data-hg=all]").click();
     ok((await p.locator(".tcard").count()) === all, "All brings every topic back");
     await p.goto(URL_ + "#/practice");
-    await p.locator(".gchip").first().waitFor();
-    const g = p.locator(".gchip[data-grp=web]");
-    if ((await g.getAttribute("aria-pressed")) === "false") await g.click();
-    await g.click(); // all picked -> clears the group
-    ok((await g.getAttribute("aria-pressed")) === "false", "group chip clears");
-    await p.locator(".gchip[data-grp=web] + .chips [data-cat]").first().click();
-    ok((await g.getAttribute("aria-pressed")) === "mixed", "one topic makes the group mixed");
-    await g.click();
-    ok((await g.getAttribute("aria-pressed")) === "true", "group chip selects all of its topics");
+    const allChip = p.locator("[data-allcats]"), web = p.locator("[data-grp=web]"), data = p.locator("[data-grp=data]");
+    const on = async (l) => l.getAttribute("aria-pressed");
+    await allChip.waitFor();
+    ok((await on(allChip)) === "true", "everything starts on");
+    await web.click();
+    ok((await on(web)) === "true" && (await on(allChip)) === "false", "a tap narrows to that category");
+    await data.click();
+    ok((await on(web)) === "true" && (await on(data)) === "true", "a second tap adds to the choice");
+    await web.click();
+    ok((await on(web)) === "false", "a tap removes it again");
+    await data.click();
+    ok((await on(allChip)) === "true", "clearing the last one goes back to All");
+    await p.locator("[data-panel=topics] summary").click();
+    await p.locator("[data-cat=api]").click();
+    ok((await on(web)) === "mixed", "one topic makes the category mixed");
+    await p.locator("[data-panel=topics][open]").waitFor();
+    await allChip.click();
+    ok((await p.evaluate(() => JSON.parse(localStorage.getItem("repaso-prefs-v1")).cats.length)) === 0, "All is saved as an open list, so new topics join it");
   });
   await check(`${label}: search finds a term and a question`, async () => {
     await p.goto(`${URL_}#/`);
@@ -112,7 +122,7 @@ for (const [label, viewport, touch] of [["mobile", { width: 390, height: 844 }, 
     ok((await p.evaluate(() => document.documentElement.dataset.theme || "")) === after, "theme forgotten");
   });
   await check(`${label}: Study, glossary, about and privacy open`, async () => {
-    for (const r of ["study", "terms", "about", "privacy", "practice"]) {
+    for (const r of ["topics", "topics/py", "study", "study/py", "terms", "about", "privacy", "practice"]) {
       await p.goto(`${URL_}#/${r}`);
       await p.locator("main h1, main h2").first().waitFor();
     }
@@ -174,7 +184,7 @@ await check("a 320 px phone: no sideways scroll on the main pages, in both langu
     const p = await ctx.newPage();
     await p.goto(URL_);
     await p.locator(".opt").first().waitFor();
-    for (const r of ["", "practice", "study", "study/py", "terms", "about", "account", "suggest"]) {
+    for (const r of ["", "practice", "topics", "topics/py", "terms", "about", "account", "suggest"]) {
       await p.evaluate((h) => { location.hash = "#/" + h; }, r);
       await p.waitForTimeout(120);
       const wide = await p.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
@@ -231,10 +241,21 @@ await check("someone who already uses the app keeps all their progress and setti
     localStorage.setItem("repaso-progress-v1", a); localStorage.setItem("repaso-prefs-v1", b);
   }, [JSON.stringify(old), JSON.stringify({ lang: "en", mode: "smart", size: 10, timer: 90, levels: "auto", cats: ["py"], stLv: 0 })]);
   await p.goto(`${URL_}#/practice`);
-  await p.locator("[data-order=interview]").waitFor();
+  await p.locator("[data-order=interview]").waitFor({ state: "attached" });
   ok((await p.locator("[data-order=interview]").getAttribute("aria-pressed")) === "true", "the old setting kept the lock on");
   ok((await p.locator("[data-cat=py]").getAttribute("aria-pressed")) === "true", "topics forgotten");
   ok((await p.locator("[data-cat=db]").getAttribute("aria-pressed")) === "false", "topics changed");
+  await p.goto(`${URL_}#/topics/py/missed`);
+  await p.locator(".sitem").first().waitFor();
+  ok((await p.locator(".sitem").count()) === 1 && (await p.locator(".sitem .st").innerText()) === "Missed", "the missed filter");
+  await p.goto(`${URL_}#/study/py/mastered`);
+  await p.locator(".sitem .st-mastered").first().waitFor();
+  await p.goto(URL_);
+  await p.locator("[data-go=quick]").click();
+  await p.locator(".qtop").waitFor();
+  ok((await p.locator(".qmeta a").innerText()) === "Python", "the home button ignored the chosen topics");
+  await p.locator("[data-act=end]").click();
+  await p.goto(`${URL_}#/practice`);
   await p.locator("[data-go=mode]").click();
   await p.locator(".qmeta").first().waitFor();
   const seen = [];
@@ -251,12 +272,47 @@ await check("From the basics brings back level by level, and is remembered", asy
   const ctx = await browser.newContext({ locale: "en-US" });
   const p = await ctx.newPage();
   await p.goto(`${URL_}#/practice`);
+  await p.locator("[data-panel=options] summary").click();
   await p.locator("[data-order=basics]").click();
   await p.reload();
-  await p.locator("[data-order=basics][aria-pressed=true]").waitFor();
+  await p.locator("[data-order=basics][aria-pressed=true]").waitFor({ state: "attached" });
   await p.locator("[data-go=mode]").click();
   await p.locator(".qmeta").first().waitFor();
   await walkSession(p, async () => { ok((await levelOnScreen(p)) === "Foundations", "above Foundations before unlocking"); });
+  await ctx.close();
+});
+await check("Practice fits on one phone screen: categories and Start, in Spanish", async () => {
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: "es-ES" });
+  const p = await ctx.newPage();
+  await p.goto(`${URL_}#/practice`);
+  await p.locator("[data-go=mode]").waitFor();
+  const box = await p.locator("[data-go=mode]").boundingBox();
+  ok(box.y + box.height <= 844, `Start ends at ${Math.round(box.y + box.height)} px`);
+  await ctx.close();
+});
+await check("I don't know shows the answer and changes nothing", async () => {
+  const ctx = await browser.newContext({ locale: "en-US" });
+  const p = await ctx.newPage();
+  await p.goto(`${URL_}#/practice`);
+  await p.locator("[data-grp=lang]").click();
+  await p.locator("[data-go=mode]").click();
+  await p.locator(".qtop").waitFor();
+  for (let i = 0; i < 12 && !(await p.locator("[data-act=dunno]").count()); i++) {
+    await p.locator("[data-act=reveal]").click(); await p.locator("[data-act=got]").click();
+  }
+  const before = await p.evaluate(() => localStorage.getItem("repaso-progress-v1"));
+  await p.locator("[data-act=dunno]").click();
+  await p.locator(".fb.dunno").waitFor();
+  await p.locator(".opt.ok").waitFor();
+  ok(await p.locator(".answer").count(), "no explanation");
+  ok((await p.evaluate(() => localStorage.getItem("repaso-progress-v1"))) === before, "progress changed");
+  await p.locator("[data-act=next]").click();
+  await p.locator("[data-act=end]").click();
+  await p.getByText("The ones you didn't know").waitFor();
+  ok(!(await p.getByText("Clean run").count()), "a session of I don't know is not a clean run");
+  ok(!(await p.locator(".ring").count()), "a score with nothing answered");
+  await p.locator("[data-act=retry]").click();
+  await p.locator(".qtop").waitFor();
   await ctx.close();
 });
 await check("odd links never break the app: unknown and prototype-like ids", async () => {
@@ -266,7 +322,7 @@ await check("odd links never break the app: unknown and prototype-like ids", asy
   p.on("pageerror", (e) => crashes.push(e.message));
   await p.goto(URL_);
   await p.locator(".opt").first().waitFor();
-  for (const h of ["#/q/constructor", "#/q/__proto__", "#/term/__proto__", "#/term/toString", "#/study/constructor/9", "#/study/__proto__", "#/search/%E0%A4%A", "#/nope/1/2", "#/suggest?ref=%3Cimg%20src%3Dx%20onerror%3Dalert(1)%3E"]) {
+  for (const h of ["#/q/constructor", "#/q/__proto__", "#/term/__proto__", "#/term/toString", "#/study/constructor/9", "#/topics/__proto__", "#/topics/py/constructor", "#/search/%E0%A4%A", "#/nope/1/2", "#/suggest?ref=%3Cimg%20src%3Dx%20onerror%3Dalert(1)%3E"]) {
     await p.evaluate((x) => { location.hash = x; }, h);
     await p.waitForTimeout(80);
     ok(await p.locator("main").innerText(), `empty page for ${h}`);
@@ -299,7 +355,7 @@ await check("shipped config: accounts offered, and no request leaves the site be
   p.on("request", (r) => { if (!r.url().startsWith(URL_) && !r.url().startsWith("data:")) foreign.push(r.url()); });
   await p.goto(URL_);
   await p.locator(".opt").first().waitFor();
-  for (const h of ["#/practice", "#/study", "#/terms", "#/about", "#/privacy", "#/suggest", "#/account"]) {
+  for (const h of ["#/practice", "#/topics", "#/terms", "#/about", "#/privacy", "#/suggest", "#/account"]) {
     await p.evaluate((x) => { location.hash = x; }, h);
     await p.waitForTimeout(150);
   }
